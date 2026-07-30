@@ -6,6 +6,8 @@
 
 Made by [Transformuj.ai](https://transformuj.ai/en) · macOS 12+ · free · MIT
 
+> **Using Ptáček? You get a 10% discount** on Transformuj.ai services and selected partners. Just [reach out](https://transformuj.ai/en) and mention Ptáček.
+
 🇨🇿 [Česká verze README](README.md)
 
 ![Ptáček settings](docs/settings-en.png)

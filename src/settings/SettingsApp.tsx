@@ -248,6 +248,7 @@ function SettingsApp() {
             </button>
           </div>
           <div className="s-sub">{t.tagline}</div>
+          <div className="s-perk">{t.perk}</div>
         </div>
         <button className="s-demo" onClick={() => demo()}>
           {t.tryFlyby}

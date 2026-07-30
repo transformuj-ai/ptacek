@@ -4,6 +4,8 @@
 
 Vyrobil [Transformuj.ai](https://transformuj.ai) · macOS 12+ · zdarma · MIT
 
+> **Používáš Ptáčka? Máš 10% slevu** na služby Transformuj.ai a vybraných partnerů. Stačí se [ozvat](https://transformuj.ai) a zmínit Ptáčka.
+
 🇬🇧 [README in English](README.en.md)
 
 ![Nastavení Ptáčka](docs/nastaveni.png)
