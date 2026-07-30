@@ -1,4 +1,5 @@
 use log::{error, info};
+use mouse_position::mouse_position::Mouse;
 use tauri::{AppHandle, Manager, WindowBuilder, WindowUrl};
 
 pub const OVERLAY_LABEL: &str = "overlay";
@@ -75,10 +76,10 @@ pub fn open_overlay(app: &AppHandle, query: &str) -> bool {
         }
     };
 
-    // Roztáhnout přes celý primární monitor. Monitor API je v Tauri v1
+    // Roztáhnout přes celý cílový monitor. Monitor API je v Tauri v1
     // dostupné až na existujícím okně, proto se ptáme po buildu.
-    match window.primary_monitor() {
-        Ok(Some(monitor)) => {
+    match target_monitor(&window) {
+        Some(monitor) => {
             // POZOR na pořadí: nejdřív velikost, pak pozice. AppKit při
             // resize drží spodní hranu okna, takže set_position→set_size
             // odsune horní okraj nad obrazovku (změřeno: Y = -552).
@@ -89,8 +90,7 @@ pub fn open_overlay(app: &AppHandle, query: &str) -> bool {
                 error!("Overlay set_position selhalo: {err}");
             }
         }
-        Ok(None) => error!("Primární monitor nenalezen, overlay zůstává v defaultní velikosti"),
-        Err(err) => error!("Dotaz na primární monitor selhal: {err}"),
+        None => error!("Žádný monitor nenalezen, overlay zůstává v defaultní velikosti"),
     }
 
     // Click-through VŽDY jako výchozí stav — interaktivitu zapíná až hover
@@ -133,6 +133,49 @@ pub fn open_overlay(app: &AppHandle, query: &str) -> bool {
 
     info!("Overlay okno vytvořeno ({query})");
     true
+}
+
+/// Na kterém monitoru se má přelet odehrát. Maskot má přeletět tam, kam
+/// se uživatel dívá — tedy přes displej, na kterém má právě myš. Jeden
+/// monitor = žádná otázka; když se kurzor nepodaří nikam zařadit
+/// (souřadnice mimo všechny displeje po odpojení monitoru), padá to
+/// zpátky na primární.
+///
+/// Souřadnice myši chodí v logických bodech (stejný prostor, ve kterém
+/// pracuje hover hit-test), rámce monitorů jsou ve fyzických pixelech —
+/// proto se každý monitor přepočítává vlastním scale faktorem.
+fn target_monitor(window: &tauri::Window) -> Option<tauri::Monitor> {
+    let monitors = window.available_monitors().ok()?;
+    if monitors.len() <= 1 {
+        return monitors.into_iter().next();
+    }
+
+    if let Mouse::Position { x, y } = Mouse::get_mouse_position() {
+        let (mx, my) = (f64::from(x), f64::from(y));
+        for monitor in &monitors {
+            let scale = monitor.scale_factor();
+            let pos = monitor.position().to_logical::<f64>(scale);
+            let size = monitor.size().to_logical::<f64>(scale);
+            if mx >= pos.x
+                && mx < pos.x + size.width
+                && my >= pos.y
+                && my < pos.y + size.height
+            {
+                info!(
+                    "Overlay poletí přes monitor {:?} (kurzor {mx}×{my})",
+                    monitor.name()
+                );
+                return Some(monitor.clone());
+            }
+        }
+        info!("Kurzor {mx}×{my} nepatří žádnému monitoru, beru primární");
+    }
+
+    window
+        .primary_monitor()
+        .ok()
+        .flatten()
+        .or_else(|| monitors.into_iter().next())
 }
 
 pub fn close_overlay(app: &AppHandle) {

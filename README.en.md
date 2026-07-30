@@ -17,6 +17,9 @@ Made by [Transformuj.ai](https://transformuj.ai/en) · macOS 12+ · free · MIT
 - **Hover** to freeze the mascot mid-flight, see the meeting details, and snooze it 5 minutes; clicks outside the mascot pass straight through to the app below
 - **What the mascot says**: the meeting name, a generic witty line (reveals nothing — handy when sharing your screen), or both
 - **Settings**: minutes before, mascot, flyby speed, which calendars to watch, sound, mute for an hour or the day, launch at login, Czech/English, and a built-in guide
+- **Two monitors**: the mascot flies across whichever display the cursor is on
+- **Reduce Motion**: with the system setting on, a quiet corner card replaces the flyby
+- **Uninstall**: a section in Settings removes the config, the LaunchAgent, and the Keychain entry — then you just drag the .app to the Trash
 - **Quiet by design**: the overlay window only exists during a flyby — 0% CPU the rest of the time
 
 ## Privacy

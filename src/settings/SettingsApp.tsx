@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { MASCOTS } from "../overlay/mascots/manifest";
 import { getStrings, Lang } from "../i18n";
@@ -36,6 +36,15 @@ function SettingsApp() {
   const [calMsg, setCalMsg] = useState("");
   const [calBusy, setCalBusy] = useState(false);
   const [tab, setTab] = useState<"settings" | "guide">("settings");
+  const [confirmUninstall, setConfirmUninstall] = useState(false);
+  // Systémové „Omezit pohyb" — vysvětlíme, proč maskoti nelétají.
+  const reducedMotion = useMemo(() => {
+    try {
+      return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch {
+      return false;
+    }
+  }, []);
 
   const lang: Lang = settings.language === "en" ? "en" : "cs";
   const t = getStrings(lang);
@@ -325,6 +334,7 @@ function SettingsApp() {
             <option value="en">English</option>
           </select>
         </div>
+        {reducedMotion && <div className="cal-hint">{t.motionNotice}</div>}
       </section>
 
       <section>
@@ -522,6 +532,37 @@ function SettingsApp() {
         >
           {t.partnerLink}
         </button>
+      </section>
+
+      <section className="uninstall">
+        <div className="s-label">{t.secUninstall}</div>
+        <p className="cal-hint">{t.uninstallText}</p>
+        {confirmUninstall ? (
+          <>
+            <p className="uninstall-confirm">{t.uninstallConfirm}</p>
+            <div className="uninstall-actions">
+              <button
+                className="btn-danger"
+                onClick={() => invoke("uninstall_app").catch(() => undefined)}
+              >
+                {t.uninstallYes}
+              </button>
+              <button
+                className="s-link"
+                onClick={() => setConfirmUninstall(false)}
+              >
+                {t.uninstallCancel}
+              </button>
+            </div>
+          </>
+        ) : (
+          <button
+            className="btn-danger-ghost"
+            onClick={() => setConfirmUninstall(true)}
+          >
+            {t.uninstallBtn}
+          </button>
+        )}
       </section>
         </>
       )}

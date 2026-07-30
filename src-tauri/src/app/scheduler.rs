@@ -8,7 +8,7 @@
 //! - po sleep/wake podmínka `now < start + 60 s` zabrání salvě
 //! - víc událostí najednou → seriál (další až po zavření overlaye)
 
-use log::{error, info};
+use log::info;
 use std::collections::{BTreeMap, HashSet};
 use std::time::Duration;
 use tauri::{AppHandle, Manager};

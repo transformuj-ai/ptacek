@@ -42,12 +42,31 @@ function readPayload() {
   };
 }
 
+// Systémové „Omezit pohyb" (Nastavení systému → Zpřístupnění →
+// Zobrazení). Komu se z animací dělá zle, tomu maskot přes obrazovku
+// létat nebude — místo přeletu dostane tichou kartu v rohu.
+function prefersReducedMotion(): boolean {
+  try {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    return false;
+  }
+}
+
+// Jak dlouho tichá karta zůstane, než se sama zavře (a o kolik se čekání
+// prodlouží, když nad ní uživatel drží myš).
+const NOTICE_MS = 9000;
+const NOTICE_HOVER_MS = 5000;
+
 function OverlayApp() {
   const shown = useRef(false);
   const payload = useMemo(readPayload, []);
   const mascot = useMemo(() => getMascot(payload.mascotId), [payload.mascotId]);
   const hover = useHover();
+  const reduced = useMemo(prefersReducedMotion, []);
   const cardPos = useRef<{ top: number; left: number } | null>(null);
+  const hoverRef = useRef(hover);
+  hoverRef.current = hover;
 
   // Kartu umístit VEDLE zamrzlého maskota — pozici spočítat jednou při
   // vzniku hoveru, ať neskáče. NIKDY přes maskota: maskoti u spodní hrany
@@ -96,6 +115,25 @@ function OverlayApp() {
     invoke("overlay_done").catch(() => undefined);
   };
 
+  // Bez animace není animationend, který okno normálně zavírá — tichou
+  // kartu proto zavíráme na čas. Dokud nad ní uživatel drží myš (čte,
+  // míří na Odložit), čekání se posouvá.
+  useEffect(() => {
+    if (!reduced) return;
+    let deadline = Date.now() + NOTICE_MS;
+    const timer = setInterval(() => {
+      if (hoverRef.current) {
+        deadline = Date.now() + NOTICE_HOVER_MS;
+        return;
+      }
+      if (Date.now() >= deadline) {
+        clearInterval(timer);
+        invoke("overlay_done").catch(() => undefined);
+      }
+    }, 500);
+    return () => clearInterval(timer);
+  }, [reduced]);
+
   const handleSnooze = () => {
     invoke("snooze_flyby", {
       title: payload.title || mascot.demoText,
@@ -124,6 +162,41 @@ function OverlayApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const actions = (
+    <div className="hc-actions">
+      <button className="hc-snooze" onClick={handleSnooze}>
+        {payload.lang === "en" ? "Snooze 5 min" : "Odložit o 5 min"}
+      </button>
+      <button className="hc-close" onClick={handleDone}>
+        {payload.lang === "en" ? "Close" : "Zavřít"}
+      </button>
+    </div>
+  );
+
+  const timeLine = payload.time ? (
+    <div className="hc-time">
+      {payload.lang === "en" ? "Starts at" : "Začátek v"} {payload.time}
+    </div>
+  ) : null;
+
+  // Tichý režim: žádný pohyb, jen karta v rohu. Třída hover-card je
+  // zároveň hover cíl (useHover), takže tlačítka fungují i v jinak
+  // click-through okně a klikání mimo kartu dál propadá do práce pod ní.
+  if (reduced) {
+    return (
+      <div className="overlay-root">
+        <div className="hover-card reduced-notice">
+          <div className="hc-title">
+            {payload.full || payload.title || text}
+          </div>
+          {timeLine}
+          {actions}
+          <div className="rn-why">{t.reducedWhy}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`overlay-root${hover ? " hovering" : ""}`}
@@ -142,19 +215,8 @@ function OverlayApp() {
           }
         >
           <div className="hc-title">{payload.full || payload.title || text}</div>
-          {payload.time && (
-            <div className="hc-time">
-              {payload.lang === "en" ? "Starts at" : "Začátek v"} {payload.time}
-            </div>
-          )}
-          <div className="hc-actions">
-            <button className="hc-snooze" onClick={handleSnooze}>
-              {payload.lang === "en" ? "Snooze 5 min" : "Odložit o 5 min"}
-            </button>
-            <button className="hc-close" onClick={handleDone}>
-              {payload.lang === "en" ? "Close" : "Zavřít"}
-            </button>
-          </div>
+          {timeLine}
+          {actions}
         </div>
       )}
     </div>

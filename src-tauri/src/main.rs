@@ -15,7 +15,7 @@ struct Payload {
 }
 
 fn build_app() {
-    tauri::Builder::default()
+    match tauri::Builder::default()
         // Autostart je defaultně OFF (viz AppConfig::launch_at_login) a bez
         // placeholder argumentů — spike předával nesmyslné --flag1 --flag2.
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
@@ -205,14 +205,22 @@ fn build_app() {
             cmd::open_mail_info,
             cmd::open_mail_jakub,
             cmd::open_partner,
+            cmd::uninstall_app,
         ])
         .build(tauri::generate_context!())
-        .expect("error while running tauri application")
-        .run(|_app_handle, event| {
+    {
+        // Sestavení appky selhat prakticky nemůže; kdyby ano, ať po sobě
+        // nechá důvod v logu místo holého panic hlášení.
+        Ok(app) => app.run(|_app_handle, event| {
             if let tauri::RunEvent::ExitRequested { api, .. } = event {
                 api.prevent_exit();
             }
-        });
+        }),
+        Err(err) => {
+            error!("Ptáček se nepodařilo spustit: {err}");
+            std::process::exit(1);
+        }
+    }
 }
 
 fn main() {
@@ -231,6 +239,8 @@ fn main() {
     let lock_file = std::fs::OpenOptions::new()
         .create(true)
         .write(true)
+        // zámek jen držíme, obsah nezajímá — truncate by ho zbytečně mazal
+        .truncate(false)
         .open(&lock_path);
     let _lock_guard = match lock_file {
         Ok(f) => {

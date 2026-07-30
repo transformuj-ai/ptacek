@@ -202,6 +202,68 @@ pub fn open_mail_jakub() {
     open_fixed("mailto:jakub@transformuj.ai");
 }
 
+/// Odinstalace: uklidí po sobě všechno, co appka na disku nechala, a
+/// otevře Finder u sebe sama, ať uživateli zbude jediný krok — hodit
+/// Ptáčka do koše. Přetažení do koše totiž samo nesmaže nastavení,
+/// LaunchAgent pro spouštění po přihlášení ani adresu kalendáře
+/// v Klíčence, a to je přesně ten nepořádek, který po sobě slušná appka
+/// nenechává. Bundle nemažeme sami: běžící aplikace, která si pod rukama
+/// smaže vlastní kód, je recept na tichou chybu.
+#[tauri::command]
+pub fn uninstall_app(app: tauri::AppHandle) {
+    use tauri_plugin_autostart::ManagerExt;
+
+    if let Err(err) = app.autolaunch().disable() {
+        error!("Odinstalace: vypnutí autostartu selhalo: {err}");
+    }
+    super::calendar::ics::clear_url();
+
+    // Mazat smíme JEN vlastní složku pod Application Support. Kontrola
+    // je tu proto, aby ani podivně přenastavené prostředí nemohlo
+    // proměnit odinstalaci v mazání něčeho cizího.
+    let root = super::conf::app_root();
+    let inside_app_support = tauri::api::path::config_dir()
+        .is_some_and(|base| root.starts_with(&base) && root != base);
+    if inside_app_support && root.file_name().is_some_and(|n| n == "Ptacek") {
+        if let Err(err) = std::fs::remove_dir_all(&root) {
+            if err.kind() != std::io::ErrorKind::NotFound {
+                error!("Odinstalace: smazání {} selhalo: {err}", root.display());
+            }
+        }
+    } else {
+        error!("Odinstalace: cesta {} nevypadá bezpečně, nemažu", root.display());
+    }
+
+    reveal_bundle_in_finder();
+
+    // Rovnou ven, bez Tauri cleanupu — ten by store plugin donutil
+    // settings.json zase založit a složka by se vrátila.
+    log::info!("Odinstalace dokončena, končím");
+    std::process::exit(0);
+}
+
+/// Ukáže .app bundle ve Finderu (vybraný, připravený k přetažení do
+/// koše). Když se cesta k bundlu nedá určit, otevře aspoň Aplikace.
+fn reveal_bundle_in_finder() {
+    let bundle = std::env::current_exe().ok().and_then(|exe| {
+        exe.ancestors()
+            .find(|p| p.extension().is_some_and(|e| e == "app"))
+            .map(std::path::Path::to_path_buf)
+    });
+    let mut cmd = std::process::Command::new("/usr/bin/open");
+    match bundle {
+        Some(path) => {
+            cmd.arg("-R").arg(path);
+        }
+        None => {
+            cmd.arg("/Applications");
+        }
+    }
+    if let Err(err) = cmd.spawn() {
+        error!("Odinstalace: otevření Finderu selhalo: {err}");
+    }
+}
+
 /// Jediná cesta appky k otevírání webu: konstantní URL, žádný vstup.
 fn open_fixed(url: &'static str) {
     if let Err(err) = std::process::Command::new("/usr/bin/open").arg(url).spawn() {

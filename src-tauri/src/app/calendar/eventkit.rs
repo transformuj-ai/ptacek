@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use block2::RcBlock;
 use objc2::rc::Retained;
-use objc2::{msg_send, runtime::AnyObject};
+use objc2::msg_send;
 use objc2_foundation::NSString;
 use objc2_event_kit::{EKAuthorizationStatus, EKEntityType, EKEventStore};
 use objc2_foundation::NSDate;
@@ -60,7 +60,9 @@ pub fn authorization_status() -> &'static str {
         EKAuthorizationStatus::NotDetermined => "notDetermined",
         EKAuthorizationStatus::Restricted => "restricted",
         EKAuthorizationStatus::Denied => "denied",
-        EKAuthorizationStatus::FullAccess | EKAuthorizationStatus::Authorized => "authorized",
+        // FullAccess a Authorized jsou tatáž hodnota (3) — starší název
+        // z doby před macOS 14, proto stačí jedna větev.
+        EKAuthorizationStatus::FullAccess => "authorized",
         EKAuthorizationStatus::WriteOnly => "writeOnly",
         _ => "unknown",
     }
@@ -158,8 +160,8 @@ pub fn fetch_events(hours: f64, calendar_ids: &[String]) -> Vec<CalEvent> {
     // sám stáhne změny z Googlu (může trvat i desítky minut).
     unsafe { store.refreshSourcesIfNecessary() };
 
-    let start = unsafe { NSDate::now() };
-    let end = unsafe { NSDate::dateWithTimeIntervalSinceNow(hours * 3600.0) };
+    let start = NSDate::now();
+    let end = NSDate::dateWithTimeIntervalSinceNow(hours * 3600.0);
 
     // None = všechny kalendáře (EventKit gotcha: ručně složené pole umí
     // tiše vracet prázdno). Filtr na vybrané kalendáře děláme až nad
@@ -196,12 +198,12 @@ pub fn fetch_events(hours: f64, calendar_ids: &[String]) -> Vec<CalEvent> {
                 .unwrap_or_default();
             let ext: Option<Retained<NSString>> =
                 unsafe { msg_send![&*e, calendarItemExternalIdentifier] };
-            let start_ts = unsafe { start_date.timeIntervalSince1970() } as i64;
+            let start_ts = start_date.timeIntervalSince1970() as i64;
             let occ: Option<Retained<NSDate>> = unsafe { msg_send![&*e, occurrenceDate] };
             Some(CalEvent {
                 stable_id: ext.map(|x| x.to_string()).unwrap_or_else(|| id.clone()),
                 occurrence: occ
-                    .map(|d| unsafe { d.timeIntervalSince1970() } as i64)
+                    .map(|d| d.timeIntervalSince1970() as i64)
                     .unwrap_or(start_ts),
                 id,
                 title: sanitize_title(&title),

@@ -53,23 +53,22 @@ impl AppConfig {
         // Race se store zápisem: soubor může být na okamžik prázdný
         // (truncate→write). Jeden retry + cache poslední dobré konfigurace,
         // ať vadné čtení nikdy nevrátí čisté defaulty (např. zrušené mute).
+        // Zámek se bere jen přes remember/recall — otrávený mutex (jiné
+        // vlákno spadlo, když ho drželo) nesmí shodit celou appku,
+        // v nejhorším se přijde o cache a jede se na defaultech.
         match Self::read_once() {
             Some(cfg) => {
-                *LAST_GOOD.lock().unwrap() = Some(cfg.clone());
+                remember(&cfg);
                 cfg
             }
             None => {
                 std::thread::sleep(std::time::Duration::from_millis(40));
                 match Self::read_once() {
                     Some(cfg) => {
-                        *LAST_GOOD.lock().unwrap() = Some(cfg.clone());
+                        remember(&cfg);
                         cfg
                     }
-                    None => LAST_GOOD
-                        .lock()
-                        .unwrap()
-                        .clone()
-                        .unwrap_or_default(),
+                    None => recall(),
                 }
             }
         }
@@ -119,6 +118,26 @@ impl AppConfig {
 }
 
 static LAST_GOOD: std::sync::Mutex<Option<AppConfig>> = std::sync::Mutex::new(None);
+
+/// Ulož poslední dobrou konfiguraci. Když je zámek otrávený, cache se
+/// jen přeskočí — appka běží dál.
+fn remember(cfg: &AppConfig) {
+    match LAST_GOOD.lock() {
+        Ok(mut slot) => *slot = Some(cfg.clone()),
+        Err(_) => error!("Cache nastavení je nedostupná (otrávený zámek), pokračuji bez ní"),
+    }
+}
+
+/// Poslední dobrá konfigurace, jinak defaulty.
+fn recall() -> AppConfig {
+    match LAST_GOOD.lock() {
+        Ok(slot) => slot.clone().unwrap_or_default(),
+        Err(_) => {
+            error!("Cache nastavení je nedostupná, beru výchozí hodnoty");
+            AppConfig::default()
+        }
+    }
+}
 
 pub fn convert_path(path_str: &str) -> Option<String> {
     if cfg!(target_os = "windows") {

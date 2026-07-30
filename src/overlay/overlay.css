@@ -9,8 +9,39 @@
   pointer-events: none;
 }
 
-/* Maskoti a jejich animace žijí v ./mascots/ (shared.css + per-maskot).
-   Reduce Motion režim (tichá karta místo přeletu) přijde v PR10. */
+/* Maskoti a jejich animace žijí v ./mascots/ (shared.css + per-maskot). */
+
+/* Tichý režim při systémovém „Omezit pohyb": karta pod menu barem
+   vpravo, nic se nehýbe. Pojistka pod ní zastaví jakoukoli animaci,
+   i kdyby se do scény nějaká dostala jinou cestou. */
+/* Složený selektor schválně: .hover-card je v souboru níž a jinak by
+   svým top/left/transform přebil pozici v rohu. */
+.hover-card.reduced-notice {
+  top: 46px;
+  right: 28px;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  max-width: 380px;
+}
+
+.rn-why {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #a1a1aa;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay-root *,
+  .overlay-root *::before,
+  .overlay-root *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
 
 /* Hover: pauza všech animací ve scéně */
 .scene-pause * {

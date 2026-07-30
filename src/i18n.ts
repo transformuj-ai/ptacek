@@ -29,6 +29,11 @@ const STRINGS = {
       "Poslední minuty klidu",
       "Přepni si mozek",
     ],
+    /** Vysvětlení v tiché kartě, když má systém zapnuté Omezit pohyb */
+    reducedWhy:
+      "Máš v systému zapnuté „Omezit pohyb“, tak Ptáček nikam nelétá a jen tiše upozorní. Zpátky ho pustíš v Nastavení systému → Zpřístupnění → Zobrazení.",
+    motionNotice:
+      "Systém má zapnuté „Omezit pohyb“ (Nastavení systému → Zpřístupnění → Zobrazení). Ptáček to respektuje: místo přeletu ukáže v rohu tichou kartu se stejnými tlačítky. Vypnutím té volby se maskoti vrátí.",
     tabSettings: "Nastavení",
     tabGuide: "Návod",
     guideIntro:
@@ -46,12 +51,15 @@ const STRINGS = {
       "Kliknutí mimo maskota propadne do aplikace pod ním — Ptáček ti nikdy neblokuje práci.",
       "Potřebuješ klid? V liště je „Ztlumit na 1 hodinu“ nebo „Ztlumit do konce dne“. Kliknutím na tutéž položku ztlumení zrušíš.",
       "Maskot letí i přes prezentaci na celou obrazovku — právě proto vznikl.",
+      "Máš dva monitory? Maskot přeletí přes ten, na kterém máš právě myš, ať ti neuteče na vedlejší obrazovku.",
     ],
     guideTroubleTitle: "Když něco nefunguje",
     guideTrouble: [
       "Maskot nelétá: zkontroluj v sekci Kalendáře, že má Ptáček přístup a že je zaškrtnutý ten správný kalendář.",
       "Schůzka přidaná před chvílí: Apple si data z Googlu tahá s malým zpožděním, Ptáček je kontroluje každých pět minut.",
       "Po aktualizaci appky se macOS znovu zeptá na kalendář — potvrď dialog a je to.",
+      "Maskot nikam nelétá a místo něj naskočí karta v rohu: máš v systému zapnuté „Omezit pohyb“. Je to záměr, Ptáček to respektuje (Nastavení systému → Zpřístupnění → Zobrazení).",
+      "Chceš Ptáčka pryč? Úplně dole v Nastavení je Odinstalace — uklidí po sobě a otevře ti složku Aplikace, kde ho hodíš do koše.",
       "Nic z toho nepomohlo? Napiš na jakub@transformuj.ai.",
     ],
 
@@ -130,6 +138,14 @@ const STRINGS = {
     photoCaption: "Jakub Liška · Co-founder Transformuj.ai",
     linkWeb: "transformuj.ai →",
     linkLi: "LinkedIn: Jakub Liška →",
+    secUninstall: "Odinstalace",
+    uninstallText:
+      "Přetažení do koše samo o sobě nechá na disku nastavení, spouštění po přihlášení a adresu kalendáře v Klíčence. Tímhle tlačítkem po sobě Ptáček všechno uklidí a otevře ti složku Aplikace, kde ho pak stačí hodit do koše. Tvůj kalendář ani nic jiného se nedotkne.",
+    uninstallBtn: "Odinstalovat Ptáčka…",
+    uninstallConfirm:
+      "Ptáček smaže svoje nastavení, vypne spouštění po přihlášení, odebere adresu kalendáře z Klíčenky a ukončí se. Pokračovat?",
+    uninstallYes: "Ano, uklidit a ukončit",
+    uninstallCancel: "Zrušit",
   },
   en: {
     tagline: "Meetings that fly across your screen · Made by Transformuj.ai",
@@ -155,6 +171,10 @@ const STRINGS = {
       "Last quiet minutes",
       "Switch your brain over",
     ],
+    reducedWhy:
+      "Your Mac has “Reduce motion” turned on, so Ptáček stays put and just tells you quietly. Turn it off in System Settings → Accessibility → Display to get the mascots back.",
+    motionNotice:
+      "Your Mac has “Reduce motion” turned on (System Settings → Accessibility → Display). Ptáček respects it: instead of a flyby you get a quiet card in the corner with the same buttons. Turn that option off and the mascots come back.",
     tabSettings: "Settings",
     tabGuide: "Guide",
     guideIntro:
@@ -172,12 +192,15 @@ const STRINGS = {
       "Clicks outside the mascot pass through to the app below — Ptáček never blocks your work.",
       "Need quiet? The menu bar has “Mute for 1 hour” and “Mute until tomorrow”. Click again to unmute.",
       "The mascot flies over full-screen presentations too — that's exactly why it exists.",
+      "Two monitors? The mascot flies across the one your mouse is on, so you never miss it on the other screen.",
     ],
     guideTroubleTitle: "If something doesn't work",
     guideTrouble: [
       "No mascot: check in the Calendars section that Ptáček has access and the right calendar is ticked.",
       "Meeting added a minute ago: Apple syncs from Google with a slight delay, and Ptáček checks every five minutes.",
       "After an app update macOS asks for calendar access again — just confirm the dialog.",
+      "No mascot, just a card in the corner: you have “Reduce motion” turned on. That's intentional, Ptáček respects it (System Settings → Accessibility → Display).",
+      "Want Ptáček gone? The Uninstall section at the very bottom of Settings cleans up after itself and opens your Applications folder so you can drop it in the Trash.",
       "Still stuck? Write to jakub@transformuj.ai.",
     ],
 
@@ -256,6 +279,14 @@ const STRINGS = {
     photoCaption: "Jakub Liška · Co-founder, Transformuj.ai",
     linkWeb: "transformuj.ai →",
     linkLi: "LinkedIn: Jakub Liška →",
+    secUninstall: "Uninstall",
+    uninstallText:
+      "Dragging the app to the Trash on its own leaves behind your settings, the launch-at-login entry, and the calendar address in the Keychain. This button cleans all of that up and opens your Applications folder, where you just drop Ptáček in the Trash. Your calendar and everything else stays untouched.",
+    uninstallBtn: "Uninstall Ptáček…",
+    uninstallConfirm:
+      "Ptáček will delete its settings, turn off launch at login, remove the calendar address from the Keychain, and quit. Continue?",
+    uninstallYes: "Yes, clean up and quit",
+    uninstallCancel: "Cancel",
   },
 };
 
