@@ -40,6 +40,26 @@ fn build_app() {
             }
         }))
         .setup(move |app| {
+            // Nejčastější chyba při instalaci: uživatel appku spustí
+            // rovnou z připojeného DMG. Pak se chová divně (nastavení
+            // i oprávnění zmizí, jakmile DMG odpojí). Poradíme mu.
+            #[cfg(target_os = "macos")]
+            if std::env::current_exe()
+                .map(|p| p.starts_with("/Volumes/"))
+                .unwrap_or(false)
+            {
+                let _ = std::process::Command::new("/usr/bin/osascript")
+                    .arg("-e")
+                    .arg(
+                        "display alert \"Ptáčka je potřeba nejdřív nainstalovat\" \
+                         message \"Spustil jsi ho přímo z otevřeného obrazu disku. \
+                         Přetáhni ikonu Ptáčka do složky Aplikace a spusť ho odtamtud \
+                         — jinak se nastavení ani povolení kalendáře neuloží.\" \
+                         as critical buttons {\"Rozumím\"} default button 1",
+                    )
+                    .spawn();
+            }
+
             // Accessory: appka běží jako menu bar utilita, žádná ikona
             // v Docku a žádný app switcher záznam.
             #[cfg(target_os = "macos")]
