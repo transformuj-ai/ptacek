@@ -222,9 +222,7 @@ pub fn uninstall_app(app: tauri::AppHandle) {
     // je tu proto, aby ani podivně přenastavené prostředí nemohlo
     // proměnit odinstalaci v mazání něčeho cizího.
     let root = super::conf::app_root();
-    let inside_app_support = tauri::api::path::config_dir()
-        .is_some_and(|base| root.starts_with(&base) && root != base);
-    if inside_app_support && root.file_name().is_some_and(|n| n == "Ptacek") {
+    if safe_to_remove(&root, tauri::api::path::config_dir().as_deref()) {
         if let Err(err) = std::fs::remove_dir_all(&root) {
             if err.kind() != std::io::ErrorKind::NotFound {
                 error!("Odinstalace: smazání {} selhalo: {err}", root.display());
@@ -240,6 +238,19 @@ pub fn uninstall_app(app: tauri::AppHandle) {
     // settings.json zase založit a složka by se vrátila.
     log::info!("Odinstalace dokončena, končím");
     std::process::exit(0);
+}
+
+/// Smí odinstalace tuhle složku smazat? Jediná destruktivní operace
+/// v celé aplikaci, proto explicitní pravidla místo důvěry v to, že
+/// `app_root()` vrátí, co má: musí to být přímo naše složka „Ptacek"
+/// uvnitř Application Support, ne ta složka samotná a ne nic výš.
+fn safe_to_remove(root: &std::path::Path, base: Option<&std::path::Path>) -> bool {
+    let Some(base) = base else { return false };
+    root.is_absolute()
+        && root.starts_with(base)
+        && root != base
+        && root.parent() == Some(base)
+        && root.file_name().is_some_and(|name| name == "Ptacek")
 }
 
 /// Ukáže .app bundle ve Finderu (vybraný, připravený k přetažení do
@@ -268,5 +279,63 @@ fn reveal_bundle_in_finder() {
 fn open_fixed(url: &'static str) {
     if let Err(err) = std::process::Command::new("/usr/bin/open").arg(url).spawn() {
         error!("Otevření {url} selhalo: {err}");
+    }
+}
+
+#[cfg(test)]
+mod uninstall_tests {
+    use super::safe_to_remove;
+    use std::path::Path;
+
+    const BASE: &str = "/Users/nekdo/Library/Application Support";
+
+    #[test]
+    fn nase_slozka_se_smaze() {
+        assert!(safe_to_remove(
+            Path::new("/Users/nekdo/Library/Application Support/Ptacek"),
+            Some(Path::new(BASE))
+        ));
+    }
+
+    #[test]
+    fn cizi_slozky_nikdy() {
+        // sourozenci jiných aplikací ani nic mimo Application Support
+        for cesta in [
+            "/Users/nekdo/Library/Application Support/Slack",
+            "/Users/nekdo/Library/Application Support",
+            "/Users/nekdo/Library",
+            "/Users/nekdo",
+            "/Applications/Ptacek.app",
+            "/",
+        ] {
+            assert!(
+                !safe_to_remove(Path::new(cesta), Some(Path::new(BASE))),
+                "{cesta} se nikdy mazat nesmí"
+            );
+        }
+    }
+
+    #[test]
+    fn jen_primy_potomek() {
+        // ani vnořená cesta, která jménem sedí
+        assert!(!safe_to_remove(
+            Path::new("/Users/nekdo/Library/Application Support/neco/Ptacek"),
+            Some(Path::new(BASE))
+        ));
+    }
+
+    #[test]
+    fn bez_znameho_zakladu_nemazeme() {
+        // config_dir() nedostupný → radši nedělat nic
+        assert!(!safe_to_remove(
+            Path::new("/Users/nekdo/Library/Application Support/Ptacek"),
+            None
+        ));
+    }
+
+    #[test]
+    fn relativni_cesta_nikdy() {
+        // fallback z app_root() při nedostupném config_dir je "./Ptacek"
+        assert!(!safe_to_remove(Path::new("./Ptacek"), Some(Path::new("."))));
     }
 }
