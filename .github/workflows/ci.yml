@@ -1,0 +1,47 @@
+name: CI
+
+# Ptáček nemá servery ani telemetrii a texty ze schůzek se do UI dostávají
+# jen jako text nodes. Tenhle workflow hlídá, aby to platilo i po cizím
+# pull requestu — jinak jsou to jen sliby v README.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    # macOS runner je nutnost: appka volá EventKit přes objc2.
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Žádné vkládání HTML do stránky
+        run: |
+          if grep -rn "dangerouslySetInnerHTML\|\.innerHTML *=" src; then
+            echo "::error::Text schůzky smí do UI jen jako text node"
+            exit 1
+          fi
+
+      - name: Webview nesmí mít v CSP přístup na síť
+        run: |
+          if python3 -c "import json,sys; csp=json.load(open('src-tauri/tauri.conf.json'))['tauri']['security']['csp']; sys.exit(0 if 'https:' in csp.split('connect-src')[1].split(';')[0] else 1)"; then
+            echo "::error::connect-src povoluje https: — síť patří výhradně do Rustu"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      # unexpected_cfgs pochází z makra sel_impl! v crate objc, ne z našeho kódu
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings -A unexpected_cfgs
