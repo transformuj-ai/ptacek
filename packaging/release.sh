@@ -39,5 +39,19 @@ echo "▸ DMG"
 rm -f "$OUT"
 npx --yes appdmg packaging/appdmg.json "$OUT"
 
+# Ikona SOUBORU .dmg (to, co je vidět ve složce Stažené) je resource fork,
+# ne obsah obrazu — appdmg nastavuje jen ikonu svazku po připojení. Bez
+# tohohle kroku má stažený soubor generickou šedou ikonu obrazu disku.
+# POZOR: resource fork nepřežije upload na Drive ani GitHub, tam uživatel
+# uvidí generickou ikonu tak jako tak. Uvnitř DMG je branding v ikoně
+# svazku a v pozadí okna, a to se neztratí nikdy.
+echo "▸ ikona souboru"
+ICON_TMP="$(mktemp -d)/icon.icns"
+cp src-tauri/icons/icon.icns "$ICON_TMP"
+sips -i "$ICON_TMP" >/dev/null
+DeRez -only icns "$ICON_TMP" > "${ICON_TMP%.icns}.rsrc"
+Rez -append "${ICON_TMP%.icns}.rsrc" -o "$OUT"
+SetFile -a C "$OUT"
+
 echo "▸ hotovo: $OUT"
 shasum -a 256 "$OUT"
