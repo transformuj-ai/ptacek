@@ -4,6 +4,8 @@
 
 Vyrobil [Transformuj.ai](https://transformuj.ai) · macOS 12+ · zdarma · MIT
 
+🇬🇧 [README in English](README.en.md)
+
 ![Nastavení Ptáčka](docs/nastaveni.png)
 
 ## Co umí
