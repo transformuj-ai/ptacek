@@ -11,10 +11,10 @@ use std::time::Duration;
 
 use block2::RcBlock;
 use objc2::rc::Retained;
-use objc2::msg_send;
-use objc2_foundation::NSString;
+use objc2::{msg_send, sel};
 use objc2_event_kit::{EKAuthorizationStatus, EKEntityType, EKEventStore};
 use objc2_foundation::NSDate;
+use objc2_foundation::NSString;
 
 use super::sanitize_title;
 
@@ -68,21 +68,51 @@ pub fn authorization_status() -> &'static str {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CalendarAccessApi {
+    LegacyAccess,
+    FullAccess,
+}
+
+fn calendar_access_api(full_access_selector_available: bool) -> CalendarAccessApi {
+    if full_access_selector_available {
+        CalendarAccessApi::FullAccess
+    } else {
+        CalendarAccessApi::LegacyAccess
+    }
+}
+
 /// Požádá o přístup (macOS ukáže TCC dialog právě jednou). Blokuje max
 /// `timeout` — nikdy nevolat z main threadu.
 pub fn request_access(timeout: Duration) -> bool {
     let store = unsafe { EKEventStore::new() };
     let (tx, rx) = mpsc::channel::<bool>();
 
-    let block = RcBlock::new(move |granted: objc2::runtime::Bool, _err: *mut objc2_foundation::NSError| {
-        let _ = tx.send(granted.as_bool());
-    });
+    let block = RcBlock::new(
+        move |granted: objc2::runtime::Bool, _err: *mut objc2_foundation::NSError| {
+            let _ = tx.send(granted.as_bool());
+        },
+    );
 
     unsafe {
-        // macOS 14+: requestFullAccessToEvents (generovaná signatura chce
-        // raw pointer na Block).
         let ptr = &*block as *const block2::Block<_> as *mut block2::Block<_>;
-        store.requestFullAccessToEventsWithCompletion(ptr);
+        let supports_full_access: bool = msg_send![
+            &*store,
+            respondsToSelector: sel!(requestFullAccessToEventsWithCompletion:)
+        ];
+
+        match calendar_access_api(supports_full_access) {
+            CalendarAccessApi::FullAccess => {
+                // macOS 14+: moderní API pro plný přístup ke kalendářům.
+                store.requestFullAccessToEventsWithCompletion(ptr);
+            }
+            CalendarAccessApi::LegacyAccess => {
+                // macOS 12/13: starší API je deprecated až od macOS 14,
+                // na podporovaných starších systémech je stále správné.
+                #[allow(deprecated)]
+                store.requestAccessToEntityType_completion(EKEntityType::Event, ptr);
+            }
+        }
     }
 
     match rx.recv_timeout(timeout) {
@@ -166,9 +196,8 @@ pub fn fetch_events(hours: f64, calendar_ids: &[String]) -> Vec<CalEvent> {
     // None = všechny kalendáře (EventKit gotcha: ručně složené pole umí
     // tiše vracet prázdno). Filtr na vybrané kalendáře děláme až nad
     // výsledkem podle calendar_id — stejný efekt, spolehlivé chování.
-    let predicate = unsafe {
-        store.predicateForEventsWithStartDate_endDate_calendars(&start, &end, None)
-    };
+    let predicate =
+        unsafe { store.predicateForEventsWithStartDate_endDate_calendars(&start, &end, None) };
     let events = unsafe { store.eventsMatchingPredicate(&predicate) };
 
     let mut out: Vec<CalEvent> = events
@@ -218,4 +247,19 @@ pub fn fetch_events(hours: f64, calendar_ids: &[String]) -> Vec<CalEvent> {
     out.sort_by_key(|e| e.start);
     out.truncate(500);
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{calendar_access_api, CalendarAccessApi};
+
+    #[test]
+    fn uses_legacy_calendar_permission_api_when_full_access_selector_is_unavailable() {
+        assert_eq!(calendar_access_api(false), CalendarAccessApi::LegacyAccess);
+    }
+
+    #[test]
+    fn uses_full_calendar_permission_api_when_selector_is_available() {
+        assert_eq!(calendar_access_api(true), CalendarAccessApi::FullAccess);
+    }
 }
