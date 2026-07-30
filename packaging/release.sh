@@ -37,7 +37,7 @@ codesign --verify --strict "$BUNDLE_DIR/Ptáček.app"
 
 echo "▸ DMG"
 rm -f "$OUT"
-npx --yes appdmg packaging/appdmg.json "$OUT"
+"./node_modules/.bin/appdmg" packaging/appdmg.json "$OUT"   # pinovaná devDependency, žádné stahování při buildu
 
 # Ikona SOUBORU .dmg (to, co je vidět ve složce Stažené) je resource fork,
 # ne obsah obrazu — appdmg nastavuje jen ikonu svazku po připojení. Bez

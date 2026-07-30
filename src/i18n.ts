@@ -9,11 +9,11 @@ const STRINGS = {
     tryFlyby: "Vyzkoušet přelet",
     secFlyby: "Přelet",
     textMode: "Co má maskot říkat",
-    textModeTitle: "Název schůzky (doporučeno)",
+    textModeTitle: "Název schůzky",
     textModeFun: "Vtipnou hlášku",
     textModeHybrid: "Hlášku i název schůzky",
     textModeHint:
-      "Hlášky jsou obecné, takže sedí na jakoukoli schůzku a nic o ní neprozradí — hodí se, když sdílíš obrazovku.",
+      "Hlášky jsou obecné, takže sedí na jakoukoli schůzku a nic o ní neprozradí. Pozor: režim s názvem schůzky ho ukáže i lidem, kterým zrovna sdílíš obrazovku.",
     /** Obecné hlášky — nesmí tvrdit nic konkrétního o schůzce */
     funLines: [
       "Za chvíli tě někdo bude hledat",
@@ -118,6 +118,8 @@ const STRINGS = {
     icsSet: "iCal adresa je nastavená",
     icsRemove: "Odebrat",
     icsOk: (n: number) => `Připojeno, ${n} událostí v příštích 7 dnech`,
+    icsFail: (r: string) =>
+      `Adresa je uložená, ale stažení se nepodařilo (${r}). Zkontroluj adresu a připojení — Ptáček to zkusí znovu sám.`,
     secAbout: "O aplikaci",
     whyTitle: "Proč Ptáček existuje?",
     whyText:
@@ -152,11 +154,11 @@ const STRINGS = {
     tryFlyby: "Try a flyby",
     secFlyby: "Flyby",
     textMode: "What the mascot says",
-    textModeTitle: "Meeting name (recommended)",
+    textModeTitle: "Meeting name",
     textModeFun: "A witty line",
     textModeHybrid: "Line and meeting name",
     textModeHint:
-      "The lines are generic, so they fit any meeting and reveal nothing about it — handy when you share your screen.",
+      "The lines are generic, so they fit any meeting and reveal nothing. Careful: the meeting-name mode shows the name to anyone you are screen-sharing with.",
     funLines: [
       "Someone is about to look for you",
       "Your calendar has plans",
@@ -259,6 +261,8 @@ const STRINGS = {
     icsSet: "iCal address is set",
     icsRemove: "Remove",
     icsOk: (n: number) => `Connected, ${n} events in the next 7 days`,
+    icsFail: (r: string) =>
+      `The address is saved, but the download failed (${r}). Check the address and your connection — Ptáček will retry on its own.`,
     secAbout: "About",
     whyTitle: "Why does Ptáček exist?",
     whyText:

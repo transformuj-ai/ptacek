@@ -105,7 +105,8 @@ pub fn open_overlay(app: &AppHandle, query: &str) -> bool {
 
     // Okno ukazuje až frontend po mountu (appWindow.show()) — bez bílého
     // flashe z cold-startu WebView. Failsafe: kdyby se frontend nikdy
-    // neozval (zombie WebView), okno po 90 s zavřeme z Rustu.
+    // neozval (zombie WebView), smyčka níže okno zavře při první
+    // kontrole bez keep-alive (kontroluje se à 25 s).
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
         // Failsafe: zombie okno zavřít. Když uživatel drží myš na

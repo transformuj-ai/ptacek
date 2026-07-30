@@ -47,6 +47,14 @@ Stack: Tauri v1 + React + TypeScript, EventKit through objc2, mascots as plain C
 
 Code comments are in Czech — the app was built by a Czech team and we kept the voice.
 
+## What is and isn't tested
+
+Physically tested on an M3 MacBook Air running macOS 26. On macOS 12/13
+the app uses the older Apple calendar-permission API (per Apple TN3152),
+but we didn't have a real machine with those systems — reports welcome.
+Multi-monitor support is written but so far tested on a single display.
+The overlay is mouse-only for now (keyboard/VoiceOver on the roadmap).
+
 ## Support
 
 Ptáček is a gift to the community, not a supported product. Feel free to open an issue; we don't promise fixes or new features. Pull requests are welcome.

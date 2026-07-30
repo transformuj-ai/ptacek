@@ -38,7 +38,8 @@ impl Default for AppConfig {
             speed: 1.0,
             language: "cs".to_string(),
             first_run_done: false,
-            text_mode: "title".to_string(),
+            // hybrid: hláška + zkrácený název — bezpečný default při sdílení obrazovky
+            text_mode: "hybrid".to_string(),
         }
     }
 }

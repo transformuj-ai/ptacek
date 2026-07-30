@@ -41,6 +41,14 @@ cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets
 
 Stack: Tauri v1 + React + TypeScript, EventKit přes objc2, maskoti = čisté CSS/SVG animace. Bezpečnostní architektura: minimální Tauri allowlist, CSP bez sítě pro webview, texty událostí výhradně jako text nodes, sanitizace titulků (C0/C1, bidi-override), ICS parser s limity.
 
+## Co je a není otestované
+
+Fyzicky testováno na MacBooku Air M3 s macOS 26. Na macOS 12 a 13 appka
+používá starší Apple API pro žádost o kalendář (přesně dle Apple TN3152),
+ale reálný stroj s těmito systémy jsme v ruce neměli — kdyby něco, ozvi se.
+Multi-monitor podpora je napsaná, ale testovaná zatím na jednom displeji.
+Ovládání overlaye je zatím jen myší (klávesnice/VoiceOver v plánu).
+
 ## Podpora
 
 Ptáček je dárek komunitě, ne produkt s podporou. Chybu nahlásit můžeš (issues jsou otevřené), opravu ani novou funkci ale neslibujeme. Pull requesty vítáme.

@@ -9,7 +9,7 @@ import "./overlay.css";
 // OVERLAY: přeletové okno Ptáčka. Okno vytváří Rust (window.rs) skryté,
 // frontend ho ukáže až po mountu — bez bílého flashe. Konec master
 // animace maskota hlásí onDone → overlay_done → Rust okno zavře.
-// Failsafe 90 s drží Rust.
+// Failsafe (à 25 s bez keep-alive) drží Rust.
 //
 // Hover: pozici myši polluje Rust (okno je click-through); nad maskotem
 // se scéna pauzne a ukáže karta s detailem + „Odložit o 5 min".
@@ -136,7 +136,9 @@ function OverlayApp() {
 
   const handleSnooze = () => {
     invoke("snooze_flyby", {
-      title: payload.title || mascot.demoText,
+      title:
+        payload.title ||
+        (payload.lang === "en" ? mascot.demoTextEn : mascot.demoText),
       time: payload.time,
       mascot: mascot.id,
     }).catch(() => undefined);
@@ -148,8 +150,9 @@ function OverlayApp() {
   // Co maskot říká — dle nastavení. Hlášky jsou obecné, takže nikdy
   // netvrdí nic konkrétního o schůzce (bezpečné i při sdílení obrazovky).
   const text = useMemo(() => {
-    const full =
-      payload.title || (payload.mode === "demo" ? mascot.demoText : "");
+    const demo =
+      payload.lang === "en" ? mascot.demoTextEn : mascot.demoText;
+    const full = payload.title || (payload.mode === "demo" ? demo : "");
     const cut = (v: string, max: number) =>
       v.length > max ? `${v.slice(0, max).trimEnd()}…` : v;
     const fun = t.funLines[Math.floor(Math.random() * t.funLines.length)];

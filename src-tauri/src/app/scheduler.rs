@@ -26,12 +26,94 @@ pub fn request_poll() {
 use super::conf::AppConfig;
 use super::window;
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Source {
+    Ekit,
+    Ics,
+}
+
+#[derive(Clone)]
 struct FlybyJob {
-    key: String, // "{event_id}@{start_ts}"
+    key: String, // "{stable_id}@{occurrence}"
     event_id: String,
     title: String,
     start: i64,
+    source: Source,
+}
+
+/// Přestaví frontu po pollu. Každý zdroj si spravuje jen svoje joby:
+/// - EventKit je in-process a bez sítě → jeho výsledek je vždy
+///   autoritativní (i prázdný: bez oprávnění se prostě nelétá);
+/// - ICS jde přes síť → při chybě fetche se předchozí ICS joby ponechají
+///   (výpadek wifi nesmí zahodit dnešní schůzky), při úspěchu se nahradí
+///   VŽDY, i prázdnem (smazaná/zrušená událost musí z fronty pryč).
+///
+/// Dedupe: v rámci zdroje podle klíče (stable_id@occurrence — dvě různé
+/// schůzky se stejným názvem a časem přežijí), mezi zdroji heuristika
+/// (start, titulek) a ICS ustupuje EventKitu — kdo má tentýž kalendář
+/// připojený oběma cestami, nedostane dva přelety na jednu schůzku.
+fn rebuild_queue(
+    prev: &BTreeMap<i64, Vec<FlybyJob>>,
+    ekit: &[eventkit::CalEvent],
+    ics: Option<Result<Vec<eventkit::CalEvent>, String>>,
+    lead: i64,
+) -> BTreeMap<i64, Vec<FlybyJob>> {
+    let mut queue: BTreeMap<i64, Vec<FlybyJob>> = BTreeMap::new();
+    let mut keys: HashSet<String> = HashSet::new();
+    let mut cross: HashSet<(i64, String)> = HashSet::new();
+
+    let add = |queue: &mut BTreeMap<i64, Vec<FlybyJob>>,
+                   keys: &mut HashSet<String>,
+                   cross: &mut HashSet<(i64, String)>,
+                   e: &eventkit::CalEvent,
+                   source: Source,
+                   cross_check: bool| {
+        if e.id.is_empty() {
+            return;
+        }
+        let key = format!("{}@{}", e.stable_id, e.occurrence);
+        if !keys.insert(key.clone()) {
+            return; // duplicitní záznam téže instance
+        }
+        if cross_check && !cross.insert((e.start, e.title.clone())) {
+            return; // stejná schůzka už je z druhého zdroje
+        }
+        if !cross_check {
+            cross.insert((e.start, e.title.clone()));
+        }
+        queue.entry(e.start - lead).or_default().push(FlybyJob {
+            key,
+            event_id: e.id.clone(),
+            title: e.title.clone(),
+            start: e.start,
+            source,
+        });
+    };
+
+    for e in ekit {
+        add(&mut queue, &mut keys, &mut cross, e, Source::Ekit, false);
+    }
+    match ics {
+        // ICS vypnuté → žádné ICS joby
+        None => {}
+        Some(Ok(events)) => {
+            for e in &events {
+                add(&mut queue, &mut keys, &mut cross, e, Source::Ics, true);
+            }
+        }
+        // chyba fetche → přenést předchozí ICS joby beze změny
+        Some(Err(_)) => {
+            for job in prev.values().flatten().filter(|j| j.source == Source::Ics) {
+                if keys.insert(job.key.clone()) {
+                    queue
+                        .entry(job.start - lead)
+                        .or_default()
+                        .push(job.clone());
+                }
+            }
+        }
+    }
+    queue
 }
 
 pub fn start(app: AppHandle) {
@@ -53,43 +135,21 @@ pub fn start(app: AppHandle) {
             let forced = FORCE_POLL.swap(false, Ordering::Relaxed);
             if forced || now - last_poll >= 300 {
                 last_poll = now;
-                let mut events = eventkit::fetch_events(24.0, &cfg.calendar_ids);
+                let ekit = eventkit::fetch_events(24.0, &cfg.calendar_ids);
                 // druhý zdroj: tajná iCal URL (pokud je nastavená)
-                if cfg.ics_url_set {
-                    let mut ics_events = super::calendar::ics::fetch_events(24.0).await;
-                    events.append(&mut ics_events);
-                }
-                // Prázdný výsledek při neprázdné frontě = nejspíš výpadek
-                // sítě nebo blip EventKitu, ne skutečně prázdný den.
-                // Starou frontu v takovém případě ponecháme.
-                if events.is_empty() && !queue.is_empty() {
-                    log::warn!("Poll vrátil 0 událostí, ponechávám předchozí frontu");
-                    tokio::time::sleep(Duration::from_secs(15)).await;
-                    continue;
-                }
-                queue.clear();
+                let ics = if cfg.ics_url_set {
+                    let r = super::calendar::ics::fetch_events(24.0).await;
+                    if let Err(e) = &r {
+                        log::warn!("ICS poll selhal ({e}), nechávám předchozí ICS joby");
+                    }
+                    Some(r)
+                } else {
+                    None
+                };
                 // clamp: ručně upravený JSON s 99999 by jinak vystřelil
                 // všechny dnešní schůzky naráz
                 let lead = i64::from(cfg.minutes_before.min(60)) * 60;
-                // dedupe: kdo má stejný kalendář v EventKitu i přes ICS,
-                // nesmí dostat dva přelety na tutéž schůzku
-                let mut seen: HashSet<(i64, String)> = HashSet::new();
-                for e in events {
-                    if e.id.is_empty() {
-                        continue;
-                    }
-                    if !seen.insert((e.start, e.title.clone())) {
-                        continue;
-                    }
-                    let fire_at = e.start - lead;
-                    let job = FlybyJob {
-                        key: format!("{}@{}", e.stable_id, e.occurrence),
-                        event_id: e.id,
-                        title: e.title,
-                        start: e.start,
-                    };
-                    queue.entry(fire_at).or_default().push(job);
-                }
+                queue = rebuild_queue(&queue, &ekit, ics, lead);
                 // prune: klíče starší 24 h už nikdy nevystřelí
                 fired.retain(|k| {
                     k.rsplit('@')
@@ -186,4 +246,98 @@ pub fn percent_encode(s: &str) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod queue_tests {
+    use super::*;
+
+    fn ev(id: &str, start: i64, title: &str) -> eventkit::CalEvent {
+        eventkit::CalEvent {
+            stable_id: id.to_string(),
+            occurrence: start,
+            id: id.to_string(),
+            title: title.to_string(),
+            start,
+            calendar_id: "test".to_string(),
+        }
+    }
+
+    fn jobs(q: &BTreeMap<i64, Vec<FlybyJob>>) -> Vec<&FlybyJob> {
+        q.values().flatten().collect()
+    }
+
+    #[test]
+    fn vypadek_ics_necha_predchozi_ics_joby() {
+        let prev = rebuild_queue(
+            &BTreeMap::new(),
+            &[],
+            Some(Ok(vec![ev("ics:a", 1000, "Call")])),
+            60,
+        );
+        assert_eq!(jobs(&prev).len(), 1);
+        // další poll: ICS spadne → job přežije
+        let q = rebuild_queue(&prev, &[], Some(Err("timeout".into())), 60);
+        assert_eq!(jobs(&q).len(), 1, "výpadek sítě nesmí zahodit schůzku");
+    }
+
+    #[test]
+    fn uspesne_prazdne_ics_frontu_vycisti() {
+        let prev = rebuild_queue(
+            &BTreeMap::new(),
+            &[],
+            Some(Ok(vec![ev("ics:a", 1000, "Zrušený call")])),
+            60,
+        );
+        let q = rebuild_queue(&prev, &[], Some(Ok(Vec::new())), 60);
+        assert!(jobs(&q).is_empty(), "smazaná ICS událost musí z fronty pryč");
+    }
+
+    #[test]
+    fn dve_schuzky_stejny_nazev_i_cas_prezijou_v_ramci_zdroje() {
+        let q = rebuild_queue(
+            &BTreeMap::new(),
+            &[ev("e1", 1000, "Standup"), ev("e2", 1000, "Standup")],
+            None,
+            60,
+        );
+        assert_eq!(jobs(&q).len(), 2, "různé schůzky nesmí splynout kvůli názvu");
+    }
+
+    #[test]
+    fn stejna_schuzka_z_obou_zdroju_leti_jednou() {
+        let q = rebuild_queue(
+            &BTreeMap::new(),
+            &[ev("ekit-1", 1000, "Porada")],
+            Some(Ok(vec![ev("ics:x", 1000, "Porada")])),
+            60,
+        );
+        let j = jobs(&q);
+        assert_eq!(j.len(), 1);
+        assert_eq!(j[0].source, Source::Ekit, "ICS ustupuje EventKitu");
+    }
+
+    #[test]
+    fn prazdny_eventkit_je_autoritativni() {
+        let prev = rebuild_queue(&BTreeMap::new(), &[ev("e1", 1000, "A")], None, 60);
+        let q = rebuild_queue(&prev, &[], None, 60);
+        assert!(jobs(&q).is_empty(), "odepřené oprávnění = nelétá se, žádný duch");
+    }
+
+    #[test]
+    fn fire_at_respektuje_lead() {
+        let q = rebuild_queue(&BTreeMap::new(), &[ev("e1", 1000, "A")], None, 300);
+        assert_eq!(*q.keys().next().unwrap(), 700);
+    }
+
+    #[test]
+    fn duplicitni_zaznam_teze_instance_se_slouci() {
+        let q = rebuild_queue(
+            &BTreeMap::new(),
+            &[ev("e1", 1000, "A"), ev("e1", 1000, "A")],
+            None,
+            60,
+        );
+        assert_eq!(jobs(&q).len(), 1);
+    }
 }

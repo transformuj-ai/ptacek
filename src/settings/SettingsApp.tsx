@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
+import { getVersion } from "@tauri-apps/api/app";
 import { MASCOTS } from "../overlay/mascots/manifest";
 import { getStrings, Lang } from "../i18n";
 import {
@@ -16,8 +17,9 @@ import "./settings.css";
 // Okno Nastavení — brand Transformuj (tmavá, oranžový akcent, mono labely).
 // Každá změna se ukládá hned (žádné tlačítko Uložit). CZ/EN přes mini
 // slovník v ../i18n.ts; tray se po přepnutí přepíše commandem refresh_tray.
-
-const APP_VERSION = "0.1.0";
+//
+// Verze se čte za běhu z bundlu (tauri.conf.json) — jediný zdroj pravdy,
+// žádná konstanta, která by se při release zapomněla přepsat.
 
 interface CalInfo {
   id: string;
@@ -36,6 +38,7 @@ function SettingsApp() {
   const [calMsg, setCalMsg] = useState("");
   const [calBusy, setCalBusy] = useState(false);
   const [tab, setTab] = useState<"settings" | "guide">("settings");
+  const [version, setVersion] = useState("");
   const [confirmUninstall, setConfirmUninstall] = useState(false);
   // Systémové „Omezit pohyb" — vysvětlíme, proč maskoti nelétají.
   const reducedMotion = useMemo(() => {
@@ -62,6 +65,7 @@ function SettingsApp() {
   }
 
   useEffect(() => {
+    getVersion().then(setVersion).catch(() => undefined);
     getSettings()
       .then((s) => setSettings(s))
       .catch(() => undefined)
@@ -149,12 +153,23 @@ function SettingsApp() {
     setIcsMsg("");
     try {
       await invoke("set_ics_url", { url: icsInput });
+    } catch (e) {
+      // validace adresy — česká hláška přímo z Rustu
+      setIcsMsg(String(e));
+      setIcsBusy(false);
+      return;
+    }
+    try {
+      // Stažení se testuje ZVLÁŠŤ od uložení: chyba stahování je chyba
+      // („zkontroluj adresu"), ne „0 událostí" — to dřív mátlo.
       const count = await invoke<number>("test_ics_url");
       await update("icsUrlSet", true);
       setIcsInput("");
       setIcsMsg(t.icsOk(count));
     } catch (e) {
-      setIcsMsg(String(e));
+      await update("icsUrlSet", true); // adresa je uložená, jen teď nejde stáhnout
+      setIcsInput("");
+      setIcsMsg(t.icsFail(String(e)));
     } finally {
       setIcsBusy(false);
     }
@@ -474,7 +489,7 @@ function SettingsApp() {
             <b>{t.whyTitle}</b> {t.whyText}
           </p>
           <p className="s-perk">{t.perk}</p>
-          <p className="s-fine">{t.disclaimer(APP_VERSION)}</p>
+          <p className="s-fine">{t.disclaimer(version)}</p>
           <div className="s-links">
             <button
               className="s-link s-link-primary"

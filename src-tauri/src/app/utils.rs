@@ -11,8 +11,13 @@ pub fn open_setting_window(app: tauri::AppHandle) {
 
     // Ptáček je vždy tmavý (brand), takže tu na rozdíl od forku není
     // potřeba číst AppConfig kvůli tématu.
+    let title = if super::conf::AppConfig::new().language == "en" {
+        "Ptáček by Transformuj.ai — Settings"
+    } else {
+        "Ptáček by Transformuj.ai — nastavení"
+    };
     match tauri::WindowBuilder::new(&app, "setting", WindowUrl::App("/setting".into()))
-        .title("Ptáček by Transformuj.ai — nastavení")
+        .title(title)
         .inner_size(760.0, 820.0)
         .min_inner_size(640.0, 480.0)
         .theme(Some(tauri::Theme::Dark))

@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "Ptacek",
-    "version": "0.1.0"
+    "version": "0.1.1"
   },
   "tauri": {
     "allowlist": {
@@ -21,7 +21,6 @@
     "bundle": {
       "active": true,
       "targets": [
-        "dmg",
         "app"
       ],
       "identifier": "ai.transformuj.ptacek",

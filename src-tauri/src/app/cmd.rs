@@ -179,10 +179,13 @@ pub fn clear_ics_url() {
 }
 
 /// Rychlý test iCal URL pro UI: stáhne feed a vrátí počet událostí
-/// v příštích 7 dnech (bez detailů).
+/// v příštích 7 dnech (bez detailů). Chyba stahování je chyba, ne nula —
+/// UI ji ukáže jako problém, ne jako prázdný kalendář.
 #[tauri::command(async)]
-pub async fn test_ics_url() -> usize {
-    super::calendar::ics::fetch_events(168.0).await.len()
+pub async fn test_ics_url() -> Result<usize, String> {
+    super::calendar::ics::fetch_events(168.0)
+        .await
+        .map(|evs| evs.len())
 }
 
 /// Kanál partnera — pevná URL.

@@ -33,7 +33,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     speed: 1,
     language: "cs",
     firstRunDone: false,
-    textMode: "title",
+    textMode: "hybrid",
 };
 
 async function getSettingsStorePath(): Promise<string> {
