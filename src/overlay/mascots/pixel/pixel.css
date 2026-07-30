@@ -1,0 +1,76 @@
+/* --- 12 Pixel-art pták --- konverze cqw→px/vw/vh (faktor 7),
+   steps() animace křídel zachovaná kvůli 8-bit stylu. */
+
+.s12 {
+  --cycle: 8s;
+}
+
+.s12 .a12 {
+  animation: k12fly calc(var(--cycle) * var(--speed, 1)) linear 1 forwards;
+}
+
+.s12 .a12b {
+  animation: k12hop calc(var(--cycle) * var(--speed, 1)) linear 1 forwards;
+}
+
+.s12 .px {
+  width: 90px;
+  height: auto;
+  display: block;
+  shape-rendering: crispEdges;
+}
+
+.s12 .pxwing {
+  transform-box: fill-box;
+  transform-origin: 20% 50%;
+  animation: k12wing 0.48s steps(2, jump-none) infinite alternate;
+}
+
+.s12 .b12 {
+  position: absolute;
+  left: 105px;
+  top: -42px;
+  font-family: var(--mono);
+  font-size: 17px;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  background: #0a0a0b;
+  border: 3px solid var(--accent);
+  border-radius: 0;
+  padding: 6px 11px;
+  white-space: nowrap;
+}
+
+@keyframes k12fly {
+  0% {
+    transform: translate(-20vw, 0);
+  }
+  100% {
+    transform: translate(108vw, 0);
+  }
+}
+
+@keyframes k12hop {
+  0% { transform: translateY(46vh); animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1); }
+  6% { transform: translateY(28vh); animation-timing-function: cubic-bezier(0.6, 0.05, 0.9, 0.6); }
+  17% { transform: translateY(53vh); animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1); }
+  23% { transform: translateY(34vh); animation-timing-function: cubic-bezier(0.6, 0.05, 0.9, 0.6); }
+  34% { transform: translateY(59vh); animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1); }
+  40% { transform: translateY(37vh); animation-timing-function: cubic-bezier(0.6, 0.05, 0.9, 0.6); }
+  51% { transform: translateY(60vh); animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1); }
+  57% { transform: translateY(39vh); animation-timing-function: cubic-bezier(0.6, 0.05, 0.9, 0.6); }
+  68% { transform: translateY(59vh); animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1); }
+  74% { transform: translateY(36vh); animation-timing-function: cubic-bezier(0.6, 0.05, 0.9, 0.6); }
+  85% { transform: translateY(55vh); animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1); }
+  91% { transform: translateY(36vh); animation-timing-function: cubic-bezier(0.6, 0.05, 0.9, 0.6); }
+  100% { transform: translateY(46vh); }
+}
+
+@keyframes k12wing {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-42deg);
+  }
+}

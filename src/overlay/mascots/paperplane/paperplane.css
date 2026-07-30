@@ -1,0 +1,47 @@
+/* --- 02 Papírová vlaštovka --- konverze cqw→px/vw/vh (faktor 7) */
+
+.s2 {
+  --cycle: 8s;
+}
+
+.s2 .a2 {
+  animation: k2glide calc(var(--cycle) * var(--speed, 1)) cubic-bezier(0.35, 0.05, 0.6, 0.95) 1 forwards;
+}
+
+.s2 .a2b {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  animation: k2tilt 3s ease-in-out infinite alternate;
+}
+
+.s2 .plane2 {
+  width: 120px;
+  height: auto;
+  display: block;
+}
+
+.s2 .b2 {
+  animation: k1bub calc(var(--cycle) * var(--speed, 1)) linear 1 forwards;
+}
+
+/* klouzavý let po diagonále: zdola nahoru */
+@keyframes k2glide {
+  0% {
+    transform: translate(-30vw, 76vh);
+  }
+  100% {
+    transform: translate(108vw, 12vh);
+  }
+}
+
+@keyframes k2tilt {
+  from {
+    transform: rotate(-11deg);
+  }
+  to {
+    transform: rotate(-4deg);
+  }
+}
+
+/* k1bub (fade bubliny) je definovaný v bird.css a sdílený manifestem */

@@ -1,0 +1,76 @@
+/* --- 01 Ptáček t! ---
+   Tvary, struktura i timing 1:1 ze showcase; JEDNOTKY převedené pro
+   celou obrazovku: velikosti cqw→px (1 cqw showcase ≈ 7 px, ať má
+   ptáček reálné ~105 px jako desktop maskot), dráha letu cqw→vw,
+   výška letu → vh. infinite → 1 (jeden přelet). */
+
+.s1 {
+  --cycle: 8s;
+}
+
+.s1 .a1 {
+  animation: k1fly calc(var(--cycle) * var(--speed, 1)) linear 1 forwards;
+}
+
+.s1 .a1b {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  animation: k1bob calc(var(--cycle) * var(--speed, 1)) ease-in-out 1 forwards;
+}
+
+.s1 .b1 {
+  animation: k1bub calc(var(--cycle) * var(--speed, 1)) linear 1 forwards;
+}
+
+.s1 .bird1 {
+  width: 105px;
+  height: auto;
+  display: block;
+}
+
+.s1 .wing {
+  transform-box: fill-box;
+  transform-origin: 22% 70%;
+  animation: kwing 0.34s ease-in-out infinite alternate;
+}
+
+@keyframes k1fly {
+  0% {
+    transform: translate(-30vw, 38vh);
+  }
+  100% {
+    transform: translate(105vw, 38vh);
+  }
+}
+
+@keyframes k1bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-35px);
+  }
+  50% {
+    transform: translateY(7px);
+  }
+  75% {
+    transform: translateY(-21px);
+  }
+}
+
+@keyframes k1bub {
+  0%,
+  6% {
+    opacity: 0;
+  }
+  14%,
+  86% {
+    opacity: 1;
+  }
+  94%,
+  100% {
+    opacity: 0;
+  }
+}

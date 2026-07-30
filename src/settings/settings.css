@@ -1,0 +1,479 @@
+/* Nastavení — Transformuj brand: tmavá, jedna oranžová, mono labely,
+   hairlines. Bez externích fontů (system stack). */
+
+.settings-root {
+  width: 100%;
+  height: 100vh;
+  /* body má overflow:hidden kvůli overlay — scroll řeší tenhle element */
+  overflow-y: auto;
+  background: #0a0a0b;
+  color: #e4e4e7;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  font-size: 13px;
+  padding: 28px 32px 36px;
+}
+
+/* Scrollbar VŽDY viditelný (macOS ho jinak skrývá a lidi nevědí,
+   že se dá scrollovat) */
+.settings-root::-webkit-scrollbar {
+  width: 10px;
+}
+
+.settings-root::-webkit-scrollbar-track {
+  background: #141416;
+}
+
+.settings-root::-webkit-scrollbar-thumb {
+  background: rgba(249, 115, 22, 0.55);
+  border-radius: 5px;
+  border: 2px solid #141416;
+}
+
+.settings-root::-webkit-scrollbar-thumb:hover {
+  background: #f97316;
+}
+
+.s-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  margin-bottom: 8px;
+}
+
+/* celé logo v hlavičce, klikací na web */
+.s-head-logo {
+  width: 176px;
+  flex: 0 0 auto;
+  display: block;
+}
+
+/* jemná dělicí linka mezi logem a názvem appky */
+.s-head-text {
+  padding-left: 18px;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.s-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 14px 0 2px;
+}
+
+.s-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #a1a1aa;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 4px;
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+.s-tab:hover {
+  color: #e4e4e7;
+}
+
+.s-tab.active {
+  color: #f97316;
+  border-bottom-color: #f97316;
+}
+
+.cal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.cal-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  color: #d4d4d8;
+}
+
+.cal-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #f97316;
+}
+
+.cal-tag {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #71717a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-style: normal;
+}
+
+.cal-hint {
+  font-size: 12.5px;
+  /* světlejší — šedá #71717a byla na černé špatně čitelná */
+  color: #d4d4d8;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+/* Akordeon maskotů */
+.mascot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.mascot-item {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: #121214;
+}
+
+.mascot-item summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  color: #e4e4e7;
+  list-style-position: inside;
+}
+
+.mascot-item summary:hover {
+  color: #f97316;
+}
+
+.mascot-item[open] summary {
+  color: #f97316;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.mascot-body {
+  padding: 10px 14px 14px;
+}
+
+.mascot-body p {
+  color: #a1a1aa;
+  line-height: 1.55;
+  margin-bottom: 10px;
+}
+
+/* Vycentrovaná sekce O aplikaci */
+.s-centered {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.s-centered p {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.brand-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 56px;
+  margin: 10px 0 18px;
+}
+
+.clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.clickable:hover {
+  transform: scale(1.04);
+}
+
+.avatar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.avatar {
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(249, 115, 22, 0.65);
+}
+
+.avatar:hover {
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.25);
+}
+
+/* Popisek pod fotkou — stejný styl jako „CELÝ AI TÝM" pod lockupem */
+.avatar-caption {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #71717a;
+  text-align: center;
+}
+
+.s-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.s-link-primary {
+  background: #f97316;
+  color: #0a0a0b;
+  border-color: #f97316;
+  font-weight: 700;
+}
+
+.s-link-primary:hover {
+  background: #ea6a0a;
+}
+
+.s-head h1 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.s-sub {
+  font-size: 11px;
+  color: #a1a1aa;
+  margin-top: 2px;
+}
+
+.s-demo {
+  margin-left: auto;
+  background: #f97316;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 16px;
+  cursor: pointer;
+}
+
+.s-demo:hover {
+  background: #ea6a0a;
+}
+
+section {
+  padding: 18px 0 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+section:last-child {
+  border-bottom: none;
+}
+
+.s-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #f97316;
+  margin-bottom: 10px;
+}
+
+.s-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  gap: 16px;
+}
+
+.s-row span {
+  color: #d4d4d8;
+}
+
+.s-row select {
+  background: #18181b;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 13px;
+  min-width: 220px;
+}
+
+.s-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #f97316;
+}
+
+.s-info {
+  color: #a1a1aa;
+  line-height: 1.55;
+  background: rgba(249, 115, 22, 0.07);
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.s-about p {
+  color: #a1a1aa;
+  line-height: 1.55;
+  margin-bottom: 10px;
+  max-width: 560px;
+}
+
+.s-about b {
+  color: #fff;
+}
+
+.s-perk {
+  color: #e4e4e7 !important;
+  background: rgba(249, 115, 22, 0.1);
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.s-fine {
+  font-size: 11px;
+  color: #71717a !important;
+}
+
+.ics-steps {
+  margin: 0 0 12px 18px;
+  padding: 0;
+  color: #d4d4d8;
+  font-size: 12.5px;
+  line-height: 1.75;
+}
+
+.ics-steps li {
+  margin-bottom: 2px;
+}
+
+.ics-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ics-row input {
+  flex: 1;
+  background: #18181b;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 7px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: ui-monospace, Menlo, monospace;
+}
+
+.s-lockup {
+  /* oficiální horizontální lockup (průhledné pozadí, bílý text) */
+  width: 290px;
+  max-width: 100%;
+  display: block;
+}
+
+.avatar-wrap .s-lockup {
+  margin-bottom: 10px;
+}
+
+.s-link {
+  background: none;
+  border: 1px solid rgba(249, 115, 22, 0.5);
+  color: #f97316;
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.s-link:hover {
+  background: rgba(249, 115, 22, 0.12);
+}
+
+/* Partner — decentní blok úplně dole */
+.partner {
+  opacity: 0.92;
+}
+
+.partner-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+/* menší než Jakubova fotka v sekci O aplikaci (108 px) */
+.partner-avatar {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid rgba(249, 115, 22, 0.5);
+  flex: 0 0 auto;
+}
+
+.partner-avatar:hover {
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+}
+
+.partner-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.partner-role {
+  font-size: 12px;
+  color: #a1a1aa;
+  margin-top: 2px;
+}
+
+.partner-quote {
+  font-size: 12.5px;
+  color: #f97316;
+  font-style: italic;
+  margin: 6px 0 0;
+}
+
+.partner-text {
+  font-size: 12px;
+  color: #a1a1aa;
+  line-height: 1.6;
+  max-width: 620px;
+  margin-bottom: 10px;
+}
+
+.partner-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.partner-tags span {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a1a1aa;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  padding: 3px 8px;
+}

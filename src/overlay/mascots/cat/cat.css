@@ -1,0 +1,138 @@
+/* --- 04 Kocour po spodní hraně --- konverze cqw→px/vw/vh (faktor 7) */
+
+.s4 {
+  --cycle: 10s;
+  /* kocour chodí po spodní hraně obrazovky */
+  --floor: calc(100vh - 215px); /* nad Dockem */
+}
+
+.s4 .a4 {
+  animation: k4walk calc(var(--cycle) * var(--speed, 1)) linear 1 forwards;
+}
+
+.s4 .cat {
+  width: 155px;
+  height: auto;
+  display: block;
+}
+
+.s4 .legA {
+  transform-box: fill-box;
+  transform-origin: 50% 4%;
+  animation: k4legA calc(var(--cycle) * var(--speed, 1)) linear 1 forwards;
+}
+
+.s4 .legB {
+  transform-box: fill-box;
+  transform-origin: 50% 4%;
+  animation: k4legB calc(var(--cycle) * var(--speed, 1)) linear 1 forwards;
+}
+
+.s4 .tail {
+  transform-box: fill-box;
+  transform-origin: 100% 100%;
+  animation: k4tail 1.6s ease-in-out infinite alternate;
+}
+
+.s4 .headg {
+  transform-box: fill-box;
+  transform-origin: 50% 80%;
+  animation: k4head calc(var(--cycle) * var(--speed, 1)) ease-in-out 1 forwards;
+}
+
+.s4 .fside {
+  animation: k4fside calc(var(--cycle) * var(--speed, 1)) linear 1 forwards;
+}
+
+.s4 .ffront {
+  opacity: 0;
+  animation: k4ffront calc(var(--cycle) * var(--speed, 1)) linear 1 forwards;
+}
+
+.s4 .sign4 {
+  position: absolute;
+  left: 7px;
+  top: -34px;
+  transform-origin: left bottom;
+  opacity: 0;
+  animation: k4sign calc(var(--cycle) * var(--speed, 1)) cubic-bezier(0.2, 0.7, 0.2, 1) 1 forwards;
+}
+
+@keyframes k4walk {
+  0% {
+    transform: translate(-20vw, var(--floor));
+  }
+  32% {
+    transform: translate(35vw, var(--floor));
+  }
+  64% {
+    transform: translate(35vw, var(--floor));
+  }
+  100% {
+    transform: translate(108vw, var(--floor));
+  }
+}
+
+@keyframes k4legA {
+  0% { transform: rotate(16deg); } 4% { transform: rotate(-16deg); }
+  8% { transform: rotate(16deg); } 12% { transform: rotate(-16deg); }
+  16% { transform: rotate(16deg); } 20% { transform: rotate(-16deg); }
+  24% { transform: rotate(16deg); } 28% { transform: rotate(-16deg); }
+  32%, 64% { transform: rotate(0deg); }
+  68% { transform: rotate(16deg); } 72% { transform: rotate(-16deg); }
+  76% { transform: rotate(16deg); } 80% { transform: rotate(-16deg); }
+  84% { transform: rotate(16deg); } 88% { transform: rotate(-16deg); }
+  92% { transform: rotate(16deg); } 96% { transform: rotate(-16deg); }
+  100% { transform: rotate(16deg); }
+}
+
+@keyframes k4legB {
+  0% { transform: rotate(-16deg); } 4% { transform: rotate(16deg); }
+  8% { transform: rotate(-16deg); } 12% { transform: rotate(16deg); }
+  16% { transform: rotate(-16deg); } 20% { transform: rotate(16deg); }
+  24% { transform: rotate(-16deg); } 28% { transform: rotate(16deg); }
+  32%, 64% { transform: rotate(0deg); }
+  68% { transform: rotate(-16deg); } 72% { transform: rotate(16deg); }
+  76% { transform: rotate(-16deg); } 80% { transform: rotate(16deg); }
+  84% { transform: rotate(-16deg); } 88% { transform: rotate(16deg); }
+  92% { transform: rotate(-16deg); } 96% { transform: rotate(16deg); }
+  100% { transform: rotate(-16deg); }
+}
+
+@keyframes k4tail {
+  from { transform: rotate(-12deg); }
+  to { transform: rotate(14deg); }
+}
+
+@keyframes k4head {
+  0%, 34% { transform: rotate(0); }
+  40%, 58% { transform: rotate(-13deg); }
+  64%, 100% { transform: rotate(0); }
+}
+
+@keyframes k4fside {
+  0%, 35% { opacity: 1; }
+  40%, 58% { opacity: 0; }
+  63%, 100% { opacity: 1; }
+}
+
+@keyframes k4ffront {
+  0%, 35% { opacity: 0; }
+  40%, 58% { opacity: 1; }
+  63%, 100% { opacity: 0; }
+}
+
+@keyframes k4sign {
+  0%, 36% {
+    opacity: 0;
+    transform: translateY(21px) rotate(-8deg);
+  }
+  44%, 58% {
+    opacity: 1;
+    transform: translateY(0) rotate(0);
+  }
+  66%, 100% {
+    opacity: 0;
+    transform: translateY(21px) rotate(-8deg);
+  }
+}

@@ -1,0 +1,107 @@
+/* --- 08 Robot poslíček --- konverze cqw→px/vw/vh (faktor 7) */
+
+.s8 {
+  --cycle: 10s;
+  --floor: calc(100vh - 240px); /* nad Dockem */
+}
+
+.s8 .a8 {
+  animation: k8ride calc(var(--cycle) * var(--speed, 1)) cubic-bezier(0.3, 0, 0.3, 1) 1 forwards;
+}
+
+.s8 .robot {
+  width: 135px;
+  height: auto;
+  display: block;
+}
+
+.s8 .wheel {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: k8wheel calc(var(--cycle) * var(--speed, 1)) linear 1 forwards;
+}
+
+.s8 .ant {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: k8ant calc(var(--cycle) * var(--speed, 1)) ease-in-out 1 forwards;
+}
+
+.s8 .sign8 {
+  position: absolute;
+  left: 105px;
+  top: -14px;
+  opacity: 0;
+  animation: k8sign calc(var(--cycle) * var(--speed, 1)) cubic-bezier(0.2, 0.7, 0.2, 1) 1 forwards;
+}
+
+@keyframes k8ride {
+  0% {
+    transform: translate(-20vw, var(--floor));
+  }
+  22% {
+    transform: translate(26vw, var(--floor));
+  }
+  70% {
+    transform: translate(26vw, var(--floor));
+  }
+  100% {
+    transform: translate(108vw, var(--floor));
+  }
+}
+
+@keyframes k8wheel {
+  0% {
+    transform: rotate(0);
+  }
+  22% {
+    transform: rotate(430deg);
+  }
+  70% {
+    transform: rotate(430deg);
+  }
+  100% {
+    transform: rotate(1080deg);
+  }
+}
+
+@keyframes k8ant {
+  0%,
+  26% {
+    transform: rotate(0);
+  }
+  32% {
+    transform: rotate(24deg);
+  }
+  38% {
+    transform: rotate(-24deg);
+  }
+  44% {
+    transform: rotate(24deg);
+  }
+  50% {
+    transform: rotate(-18deg);
+  }
+  56%,
+  100% {
+    transform: rotate(0);
+  }
+}
+
+@keyframes k8sign {
+  0%,
+  26% {
+    opacity: 0;
+    transform: translateY(21px);
+  }
+  34%,
+  62% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: translateY(21px);
+  }
+}

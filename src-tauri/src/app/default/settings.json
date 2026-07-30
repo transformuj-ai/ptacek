@@ -1,0 +1,13 @@
+{
+    "minutesBefore": 2,
+    "mascot": "random",
+    "calendarIds": [],
+    "soundEnabled": false,
+    "launchAtLogin": false,
+    "icsUrlSet": false,
+    "muteUntil": null,
+    "speed": 1.0,
+    "language": "cs",
+    "firstRunDone": false,
+    "textMode": "title"
+}

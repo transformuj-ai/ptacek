@@ -1,0 +1,60 @@
+/* --- 10 Balón s košem --- konverze cqw→px/vw/vh (faktor 7).
+   Nejméně rušivý „gentle" režim — pomalý drift horní třetinou. */
+
+.s10 {
+  --cycle: 14s;
+}
+
+.s10 .a10 {
+  animation: k10drift calc(var(--cycle) * var(--speed, 1)) linear 1 forwards;
+}
+
+.s10 .a10b {
+  animation: k10sway 4.4s ease-in-out infinite alternate;
+  transform-origin: 50% 0;
+}
+
+.s10 .balloon {
+  width: 165px;
+  height: auto;
+  display: block;
+}
+
+.s10 .t10 {
+  position: absolute;
+  left: 50%;
+  top: 58px;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  color: #0a0a0b;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+  max-width: 128px;
+  font-size: clamp(10px, 0.75vw, 13px);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+@keyframes k10drift {
+  0% {
+    transform: translate(-20vw, 7vh);
+  }
+  100% {
+    transform: translate(110vw, 7vh);
+  }
+}
+
+@keyframes k10sway {
+  from {
+    transform: rotate(-3.5deg);
+  }
+  to {
+    transform: rotate(3.5deg);
+  }
+}

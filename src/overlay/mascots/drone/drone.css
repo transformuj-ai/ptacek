@@ -1,0 +1,110 @@
+/* --- 07 Dron s balíčkem --- konverze cqw→px/vw/vh (faktor 7) */
+
+.s7 {
+  --cycle: 9s;
+}
+
+.s7 .a7 {
+  animation: k7fly calc(var(--cycle) * var(--speed, 1)) cubic-bezier(0.4, 0, 0.3, 1) 1 forwards;
+}
+
+.s7 .a7b {
+  animation: k7hover 1.8s ease-in-out infinite alternate;
+}
+
+.s7 .drone {
+  width: 140px;
+  height: auto;
+  display: block;
+}
+
+.s7 .rot {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: kprop 0.13s linear infinite alternate;
+}
+
+.s7 .pkgw {
+  position: absolute;
+  left: 42vw;
+  top: 24vh;
+  opacity: 0;
+  animation: k7drop calc(var(--cycle) * var(--speed, 1)) cubic-bezier(0.3, 0.05, 0.6, 1) 1 forwards;
+}
+
+.s7 .pkg {
+  animation: k7sway 1.3s ease-in-out infinite alternate;
+  font-family: var(--mono);
+  font-size: clamp(12px, 0.95vw, 16px);
+  letter-spacing: 0.06em;
+  color: #fff;
+  max-width: 22vw;
+  text-align: center;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  background: #141416;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-top: 2px solid var(--accent);
+  border-radius: 6px;
+  padding: 9px 13px;
+  box-shadow: 0 7px 17px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes k7fly {
+  0% {
+    transform: translate(-22vw, 12vh);
+  }
+  22% {
+    transform: translate(40vw, 15vh);
+  }
+  46% {
+    transform: translate(40vw, 15vh);
+  }
+  78%,
+  100% {
+    transform: translate(112vw, 9vh);
+  }
+}
+
+@keyframes k7hover {
+  from {
+    transform: translateY(-6px);
+  }
+  to {
+    transform: translateY(6px);
+  }
+}
+
+@keyframes k7drop {
+  0%,
+  40% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  44% {
+    opacity: 1;
+    transform: translateY(7px);
+  }
+  72% {
+    opacity: 1;
+    transform: translateY(45vh);
+  }
+  82%,
+  100% {
+    opacity: 0;
+    transform: translateY(52vh);
+  }
+}
+
+@keyframes k7sway {
+  from {
+    transform: rotate(-9deg);
+  }
+  to {
+    transform: rotate(9deg);
+  }
+}

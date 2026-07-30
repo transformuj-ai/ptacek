@@ -1,0 +1,82 @@
+/* Overlay root pokrývá celý monitor; container-type kvůli cqw jednotkám
+   maskotů ze showcase (PR3+) — jednotky pak sedí 1:1 bez přepočtů. */
+.overlay-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: transparent;
+  container-type: inline-size;
+  pointer-events: none;
+}
+
+/* Maskoti a jejich animace žijí v ./mascots/ (shared.css + per-maskot).
+   Reduce Motion režim (tichá karta místo přeletu) přijde v PR10. */
+
+/* Hover: pauza všech animací ve scéně */
+.scene-pause * {
+  animation-play-state: paused !important;
+}
+
+/* Karta s detailem — klikatelná i při click-through okně (okno je
+   v hover stavu interaktivní, pointer-events povolujeme jen kartě) */
+.hover-card {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  background: rgba(10, 10, 11, 0.96);
+  border: 1px solid rgba(249, 115, 22, 0.55);
+  border-radius: 14px;
+  padding: 18px 22px;
+  min-width: 260px;
+  max-width: 420px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #fff;
+}
+
+.hc-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  line-height: 1.35;
+  /* celý název schůzky — max dva řádky, pak tři tečky */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.hc-time {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  color: #f97316;
+  margin-bottom: 12px;
+}
+
+.hc-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.hc-snooze {
+  background: #f97316;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hc-close {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #d4d4d8;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}

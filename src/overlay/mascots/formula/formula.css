@@ -1,0 +1,114 @@
+/* --- 09 Formule ---
+   Tvary a timing 1:1 ze showcase; jednotky převedené pro celou
+   obrazovku (velikosti px, dráha vw, výšky vh). infinite → 1. */
+
+.s9 {
+  --cycle: 6s;
+  /* výška jízdní dráhy — auto i stopa se k ní vztahují */
+  --road: 62vh;
+}
+
+.s9 .a9 {
+  animation: k9dash calc(var(--cycle) * var(--speed, 1)) cubic-bezier(0.3, 0.6, 0.4, 1) 1 forwards;
+}
+
+.s9 .f1 {
+  width: 170px;
+  height: auto;
+  display: block;
+}
+
+.s9 .fw {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: kroll 0.22s linear infinite;
+}
+
+.s9 .trail {
+  position: absolute;
+  left: 4vw;
+  top: calc(var(--road) + 34px);
+  width: 88vw;
+  height: 26px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0.18) 40%,
+    rgba(255, 255, 255, 0.05)
+  );
+  filter: blur(2px);
+  opacity: 0;
+  animation: k9trail calc(var(--cycle) * var(--speed, 1)) ease-out 1 forwards;
+}
+
+.s9 .t9 {
+  position: absolute;
+  left: 38vw;
+  top: calc(var(--road) - 42px);
+  font-family: var(--mono);
+  font-size: clamp(15px, 1.5vw, 28px);
+  letter-spacing: 0.08em;
+  max-width: 46vw;
+  text-align: center;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0;
+  animation: k9txt calc(var(--cycle) * var(--speed, 1)) ease-out 1 forwards;
+}
+
+@keyframes k9dash {
+  0% {
+    transform: translate(-15vw, var(--road));
+  }
+  13% {
+    transform: translate(110vw, var(--road));
+  }
+  13.1%,
+  100% {
+    transform: translate(110vw, var(--road));
+  }
+}
+
+@keyframes k9trail {
+  0% {
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.9;
+  }
+  16% {
+    opacity: 0.7;
+  }
+  52%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes k9txt {
+  0%,
+  13% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  19% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  52% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  64%,
+  100% {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}

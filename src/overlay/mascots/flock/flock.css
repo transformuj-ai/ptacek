@@ -1,0 +1,85 @@
+/* --- 11 Hejno ptáků --- konverze cqw→px/vw/vh (faktor 7).
+   21 ptáčků vletí, zformují slovo „TEĎ" a rozletí se. */
+
+.s11 {
+  --cycle: 7s;
+}
+
+.s11 .bd {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  animation: k11 calc(var(--cycle) * var(--speed, 1)) cubic-bezier(0.35, 0.1, 0.3, 1) 1 forwards;
+}
+
+.s11 .bd svg {
+  width: 26px;
+  height: auto;
+  display: block;
+  animation: k11flap 0.32s ease-in-out infinite alternate;
+}
+
+.s11 .bd:nth-child(3n) {
+  --sy: -10vh;
+  --ey: -16vh;
+}
+
+.s11 .bd:nth-child(3n + 1) {
+  --sy: 14vh;
+  --ey: 7vh;
+}
+
+.s11 .bd:nth-child(4n) {
+  --sy: 36vh;
+  --ey: 28vh;
+}
+
+.s11 .bd:nth-child(5n) {
+  --sy: 57vh;
+  --ey: 46vh;
+}
+
+.s11 .bd:nth-child(2n) svg {
+  animation-duration: 0.26s;
+}
+
+.s11 .bd:nth-child(3n) svg {
+  animation-duration: 0.38s;
+}
+
+@keyframes k11 {
+  0% {
+    opacity: 0;
+    transform: translate(-25vw, var(--sy, 7vh)) scale(0.8);
+  }
+  6% {
+    opacity: 1;
+  }
+  26% {
+    opacity: 1;
+    transform: translate(var(--tx), var(--ty)) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(var(--tx), var(--ty)) scale(1);
+  }
+  76% {
+    opacity: 1;
+    transform: translate(112vw, var(--ey, -7vh)) scale(0.8);
+  }
+  80%,
+  100% {
+    opacity: 0;
+    transform: translate(112vw, var(--ey, -7vh)) scale(0.8);
+  }
+}
+
+@keyframes k11flap {
+  from {
+    transform: scaleY(0.45);
+  }
+  to {
+    transform: scaleY(1.25);
+  }
+}
