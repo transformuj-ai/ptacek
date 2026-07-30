@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
+import { appWindow } from "@tauri-apps/api/window";
 import { getVersion } from "@tauri-apps/api/app";
 import { MASCOTS } from "../overlay/mascots/manifest";
 import { getStrings, Lang } from "../i18n";
@@ -40,6 +41,14 @@ function SettingsApp() {
   const [tab, setTab] = useState<"settings" | "guide">("settings");
   const [version, setVersion] = useState("");
   const [confirmUninstall, setConfirmUninstall] = useState(false);
+  // P1.6: fokus musí jít na potvrzovací tlačítko, když se objeví, a zpátky
+  // na spouštěcí tlačítko po zrušení — jinak klávesnice/VoiceOver ztratí
+  // pozici v UI.
+  const uninstallTriggerRef = useRef<HTMLButtonElement>(null);
+  const uninstallConfirmRef = useRef<HTMLButtonElement>(null);
+  const [demoMsg, setDemoMsg] = useState("");
+  const [autostartMsg, setAutostartMsg] = useState("");
+  const [betaInfoOpen, setBetaInfoOpen] = useState(false);
   // Systémové „Omezit pohyb" — vysvětlíme, proč maskoti nelétají.
   const reducedMotion = useMemo(() => {
     try {
@@ -73,6 +82,23 @@ function SettingsApp() {
     loadCalendars();
   }, []);
 
+  // Uživatel se často vrací z Nastavení systému (deep-link u zamítnutého
+  // přístupu) — při návratu do okna Ptáčka rovnou přenačti stav, ať
+  // nemusí ručně přepínat záložky, aby se stránka obnovila.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    appWindow
+      .onFocusChanged(({ payload: focused }) => {
+        if (focused) loadCalendars();
+      })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch(() => undefined);
+    return () => unlisten?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function update<K extends keyof AppSettings>(
     key: K,
     value: AppSettings[K]
@@ -91,11 +117,13 @@ function SettingsApp() {
   }
 
   async function toggleAutostart(enable: boolean) {
+    setAutostartMsg("");
     try {
       await invoke("set_launch_at_login", { enable });
       await update("launchAtLogin", enable);
     } catch {
       setSettings((prev) => ({ ...prev, launchAtLogin: !enable }));
+      setAutostartMsg(t.autostartFail);
     }
   }
 
@@ -176,10 +204,19 @@ function SettingsApp() {
   }
 
   function demo(mascotId?: string) {
-    invoke("trigger_demo", { mascot: mascotId ?? settings.mascot }).catch(
-      () => undefined
-    );
+    setDemoMsg("");
+    invoke<boolean>("trigger_demo", { mascot: mascotId ?? settings.mascot })
+      .then((started) => {
+        if (!started) setDemoMsg(t.demoFail);
+      })
+      .catch(() => setDemoMsg(t.demoFail));
   }
+
+  useEffect(() => {
+    if (confirmUninstall) {
+      uninstallConfirmRef.current?.focus();
+    }
+  }, [confirmUninstall]);
 
   if (!loaded) {
     return <div className="settings-root" />;
@@ -188,15 +225,28 @@ function SettingsApp() {
   return (
     <div className="settings-root">
       <header className="s-head">
-        <img
-          className="s-head-logo clickable"
-          src={lockup}
-          alt="Transformuj.ai"
-          title="transformuj.ai"
+        <button
+          type="button"
+          className="s-head-logo img-button"
           onClick={() => invoke("open_transformuj").catch(() => undefined)}
-        />
+          aria-label={t.linkWeb}
+        >
+          <img className="clickable" src={lockup} alt="Transformuj.ai" title="transformuj.ai" />
+        </button>
         <div className="s-head-text">
-          <h1>Ptáček</h1>
+          <div className="s-head-title-row">
+            <h1>Ptáček</h1>
+            <span className="beta-chip">{t.betaBadge}</span>
+            <button
+              type="button"
+              className="beta-info-btn"
+              aria-expanded={betaInfoOpen}
+              aria-controls="beta-info-panel"
+              onClick={() => setBetaInfoOpen((v) => !v)}
+            >
+              i<span className="visually-hidden">{t.betaInfoLabel}</span>
+            </button>
+          </div>
           <div className="s-sub">{t.tagline}</div>
         </div>
         <button className="s-demo" onClick={() => demo()}>
@@ -204,14 +254,39 @@ function SettingsApp() {
         </button>
       </header>
 
-      <nav className="s-tabs">
+      {betaInfoOpen && (
+        <div id="beta-info-panel" className="beta-info-panel" role="note">
+          <p>{t.betaInfoText}</p>
+          <button
+            className="s-link"
+            onClick={() => invoke("open_github_issues").catch(() => undefined)}
+          >
+            {t.betaReportBug}
+          </button>
+        </div>
+      )}
+
+      <div aria-live="polite">
+        {demoMsg && <div className="s-info">{demoMsg}</div>}
+        {autostartMsg && <div className="s-info">{autostartMsg}</div>}
+      </div>
+
+      <nav className="s-tabs" role="tablist">
         <button
+          id="tab-settings"
+          role="tab"
+          aria-selected={tab === "settings"}
+          aria-controls="panel-settings"
           className={tab === "settings" ? "s-tab active" : "s-tab"}
           onClick={() => setTab("settings")}
         >
           {t.tabSettings}
         </button>
         <button
+          id="tab-guide"
+          role="tab"
+          aria-selected={tab === "guide"}
+          aria-controls="panel-guide"
           className={tab === "guide" ? "s-tab active" : "s-tab"}
           onClick={() => setTab("guide")}
         >
@@ -220,7 +295,7 @@ function SettingsApp() {
       </nav>
 
       {tab === "guide" ? (
-        <>
+        <div role="tabpanel" id="panel-guide" aria-labelledby="tab-guide">
           <section>
             <div className="s-label">{t.tabGuide}</div>
             <div className="cal-hint">{t.guideIntro}</div>
@@ -263,15 +338,16 @@ function SettingsApp() {
             <div className="s-label">{t.secSigning}</div>
             <div className="cal-hint">{t.signingText}</div>
           </section>
-        </>
+        </div>
       ) : (
-        <>
+        <div role="tabpanel" id="panel-settings" aria-labelledby="tab-settings">
 
       <section>
         <div className="s-label">{t.secFlyby}</div>
         <div className="s-row">
-          <span>{t.notifyBefore}</span>
+          <label htmlFor="set-minutes-before">{t.notifyBefore}</label>
           <select
+            id="set-minutes-before"
             value={settings.minutesBefore}
             onChange={(e) => update("minutesBefore", Number(e.target.value))}
           >
@@ -284,8 +360,9 @@ function SettingsApp() {
           </select>
         </div>
         <div className="s-row">
-          <span>{t.mascot}</span>
+          <label htmlFor="set-mascot">{t.mascot}</label>
           <select
+            id="set-mascot"
             value={settings.mascot}
             onChange={(e) => update("mascot", e.target.value)}
           >
@@ -298,8 +375,9 @@ function SettingsApp() {
           </select>
         </div>
         <div className="s-row">
-          <span>{t.textMode}</span>
+          <label htmlFor="set-text-mode">{t.textMode}</label>
           <select
+            id="set-text-mode"
             value={settings.textMode}
             onChange={(e) => update("textMode", e.target.value)}
           >
@@ -312,8 +390,9 @@ function SettingsApp() {
           <div className="cal-hint">{t.textModeHint}</div>
         )}
         <div className="s-row">
-          <span>{t.speed}</span>
+          <label htmlFor="set-speed">{t.speed}</label>
           <select
+            id="set-speed"
             value={String(settings.speed)}
             onChange={(e) => update("speed", Number(e.target.value))}
           >
@@ -327,24 +406,26 @@ function SettingsApp() {
       <section>
         <div className="s-label">{t.secBehavior}</div>
         <div className="s-row">
-          <span>{t.launchAtLogin}</span>
+          <label htmlFor="set-launch-at-login">{t.launchAtLogin}</label>
           <input
+            id="set-launch-at-login"
             type="checkbox"
             checked={settings.launchAtLogin}
             onChange={(e) => toggleAutostart(e.target.checked)}
           />
         </div>
         <div className="s-row">
-          <span>{t.sound}</span>
+          <label htmlFor="set-sound">{t.sound}</label>
           <input
+            id="set-sound"
             type="checkbox"
             checked={settings.soundEnabled}
             onChange={(e) => update("soundEnabled", e.target.checked)}
           />
         </div>
         <div className="s-row">
-          <span>{t.language}</span>
-          <select value={lang} onChange={(e) => changeLanguage(e.target.value)}>
+          <label htmlFor="set-language">{t.language}</label>
+          <select id="set-language" value={lang} onChange={(e) => changeLanguage(e.target.value)}>
             <option value="cs">Čeština</option>
             <option value="en">English</option>
           </select>
@@ -372,7 +453,7 @@ function SettingsApp() {
 
       <section>
         <div className="s-label">{t.secCalendars}</div>
-        {calStatus === "authorized" && (
+        {calStatus === "authorized" && calendars.length > 0 && (
           <>
             <div className="cal-hint">{t.calHint}</div>
             <div className="cal-list">
@@ -396,6 +477,9 @@ function SettingsApp() {
             </div>
           </>
         )}
+        {calStatus === "authorized" && calendars.length === 0 && (
+          <div className="s-info">{t.calEmpty}</div>
+        )}
         {(calStatus === "notDetermined" || calStatus === "error") && (
           <div className="s-info">
             <div style={{ marginBottom: 10 }}>{t.calNoAccess}</div>
@@ -404,9 +488,34 @@ function SettingsApp() {
             </button>
           </div>
         )}
-        {calMsg && <div className="s-perk">{calMsg}</div>}
+        <div aria-live="polite">
+          {calMsg && <div className="s-perk">{calMsg}</div>}
+        </div>
         {(calStatus === "denied" || calStatus === "restricted") && (
-          <div className="s-info">{t.calDenied}</div>
+          <div className="s-info">
+            <div style={{ marginBottom: 10 }}>{t.calDenied}</div>
+            <button
+              className="s-link"
+              onClick={() =>
+                invoke("open_calendar_privacy_settings").catch(() => undefined)
+              }
+            >
+              {t.calOpenSystemSettings}
+            </button>
+          </div>
+        )}
+        {calStatus === "writeOnly" && (
+          <div className="s-info">
+            <div style={{ marginBottom: 10 }}>{t.calWriteOnly}</div>
+            <button
+              className="s-link"
+              onClick={() =>
+                invoke("open_calendar_privacy_settings").catch(() => undefined)
+              }
+            >
+              {t.calOpenSystemSettings}
+            </button>
+          </div>
         )}
       </section>
 
@@ -421,7 +530,11 @@ function SettingsApp() {
               ))}
             </ol>
             <div className="ics-row">
+              <label htmlFor="set-ics-url" className="visually-hidden">
+                {t.secIcs}
+              </label>
               <input
+                id="set-ics-url"
                 type="password"
                 placeholder="https://calendar.google.com/…/basic.ics"
                 value={icsInput}
@@ -431,12 +544,14 @@ function SettingsApp() {
                 {icsBusy ? t.icsChecking : t.icsSave}
               </button>
             </div>
-            {icsMsg && <div className="cal-hint">{icsMsg}</div>}
+            <div aria-live="polite">
+              {icsMsg && <div className="cal-hint">{icsMsg}</div>}
+            </div>
             <div className="s-info">{t.icsSafety}</div>
           </>
         ) : (
           <div className="s-row">
-            <span>
+            <span aria-live="polite">
               {t.icsSet} {icsMsg && <em className="cal-hint">({icsMsg})</em>}
             </span>
             <button
@@ -463,25 +578,37 @@ function SettingsApp() {
         <div className="s-about s-centered">
           <div className="brand-row">
             <div className="avatar-wrap">
-              <img
-                className="s-lockup clickable"
-                src={lockup}
-                alt="Transformuj.ai"
-                title="transformuj.ai"
+              <button
+                type="button"
+                className="img-button"
                 onClick={() =>
                   invoke("open_transformuj").catch(() => undefined)
                 }
-              />
+                aria-label={t.linkWeb}
+              >
+                <img
+                  className="s-lockup clickable"
+                  src={lockup}
+                  alt="Transformuj.ai"
+                  title="transformuj.ai"
+                />
+              </button>
               <div className="avatar-caption">Celý AI tým</div>
             </div>
             <div className="avatar-wrap">
-              <img
-                className="avatar clickable"
-                src={jakubPhoto}
-                alt={t.photoAlt}
-                title="LinkedIn"
+              <button
+                type="button"
+                className="img-button"
                 onClick={() => invoke("open_linkedin").catch(() => undefined)}
-              />
+                aria-label={t.linkLi}
+              >
+                <img
+                  className="avatar clickable"
+                  src={jakubPhoto}
+                  alt={t.photoAlt}
+                  title="LinkedIn"
+                />
+              </button>
               <div className="avatar-caption">{t.photoCaption}</div>
             </div>
           </div>
@@ -489,6 +616,15 @@ function SettingsApp() {
             <b>{t.whyTitle}</b> {t.whyText}
           </p>
           <p className="s-perk">{t.perk}</p>
+          <p className="s-fine">
+            {t.betaAboutLine}{" "}
+            <button
+              className="s-link s-link-inline"
+              onClick={() => invoke("open_github_issues").catch(() => undefined)}
+            >
+              {t.betaReportBug}
+            </button>
+          </p>
           <p className="s-fine">{t.disclaimer(version)}</p>
           <div className="s-links">
             <button
@@ -522,13 +658,19 @@ function SettingsApp() {
       <section className="partner">
         <div className="s-label">{t.secPartner}</div>
         <div className="partner-head">
-          <img
-            className="partner-avatar clickable"
-            src={filipPhoto}
-            alt={t.partnerName}
-            title="YouTube: AI s rozumem"
+          <button
+            type="button"
+            className="img-button"
             onClick={() => invoke("open_partner").catch(() => undefined)}
-          />
+            aria-label={t.partnerLink}
+          >
+            <img
+              className="partner-avatar clickable"
+              src={filipPhoto}
+              alt={t.partnerName}
+              title="YouTube: AI s rozumem"
+            />
+          </button>
           <div>
             <div className="partner-name">{t.partnerName}</div>
             <div className="partner-role">{t.partnerRole}</div>
@@ -557,6 +699,7 @@ function SettingsApp() {
             <p className="uninstall-confirm">{t.uninstallConfirm}</p>
             <div className="uninstall-actions">
               <button
+                ref={uninstallConfirmRef}
                 className="btn-danger"
                 onClick={() => invoke("uninstall_app").catch(() => undefined)}
               >
@@ -564,7 +707,10 @@ function SettingsApp() {
               </button>
               <button
                 className="s-link"
-                onClick={() => setConfirmUninstall(false)}
+                onClick={() => {
+                  setConfirmUninstall(false);
+                  uninstallTriggerRef.current?.focus();
+                }}
               >
                 {t.uninstallCancel}
               </button>
@@ -572,6 +718,7 @@ function SettingsApp() {
           </>
         ) : (
           <button
+            ref={uninstallTriggerRef}
             className="btn-danger-ghost"
             onClick={() => setConfirmUninstall(true)}
           >
@@ -579,7 +726,7 @@ function SettingsApp() {
           </button>
         )}
       </section>
-        </>
+        </div>
       )}
     </div>
   );

@@ -165,12 +165,26 @@ function OverlayApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // P1.5: přes myš je karta dostupná jen v hoveru — screen reader a
+  // klávesnice se sem nedostanou (okno je záměrně click-through), proto
+  // je ekvivalentní cesta v tray menu (viz tray.rs). aria-label tu je
+  // navíc pro VoiceOver, kdyby uživatel kartu přesto zaostřil.
   const actions = (
     <div className="hc-actions">
-      <button className="hc-snooze" onClick={handleSnooze}>
+      <button
+        className="hc-snooze"
+        onClick={handleSnooze}
+        aria-label={
+          payload.lang === "en" ? "Snooze flyby by 5 minutes" : "Odložit přelet o 5 minut"
+        }
+      >
         {payload.lang === "en" ? "Snooze 5 min" : "Odložit o 5 min"}
       </button>
-      <button className="hc-close" onClick={handleDone}>
+      <button
+        className="hc-close"
+        onClick={handleDone}
+        aria-label={payload.lang === "en" ? "Close flyby" : "Zavřít přelet"}
+      >
         {payload.lang === "en" ? "Close" : "Zavřít"}
       </button>
     </div>

@@ -47,14 +47,15 @@ pub fn get_mouse_position() -> serde_json::Value {
     }
 }
 
-/// Demo přelet z okna Nastavení.
+/// Demo přelet z okna Nastavení. Vrací, jestli se přelet fakt spustil —
+/// UI tak dokáže ukázat hlášku, když ne (typicky: přelet už běží).
 #[tauri::command]
-pub fn trigger_demo(app: tauri::AppHandle, mascot: Option<String>) {
+pub fn trigger_demo(app: tauri::AppHandle, mascot: Option<String>) -> bool {
     let id = mascot.unwrap_or_else(|| "random".to_string());
     // id jde z našeho UI (výběr z manifestu), přesto whitelist znaků —
     // payload nesmí umět rozbít query string.
     let safe: String = id.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
-    window::open_overlay(&app, &format!("mode=demo&mascot={safe}"));
+    window::open_overlay(&app, &format!("mode=demo&mascot={safe}"))
 }
 
 /// Zapnutí/vypnutí spouštění po přihlášení (LaunchAgent přes plugin).
@@ -150,6 +151,22 @@ pub fn list_calendars() -> Vec<super::calendar::eventkit::CalInfo> {
 #[tauri::command]
 pub fn open_transformuj() {
     open_fixed("https://transformuj.ai");
+}
+
+/// Otevře v Nastavení systému rovnou panel Soukromí a zabezpečení →
+/// Kalendáře. Pevný deep-link, žádný vstup z frontendu — stejný vzor
+/// jako ostatní pevné otevírání URL v tomhle souboru. Používá se, když
+/// je přístup „denied"/„restricted"/„writeOnly": systémový TCC dialog
+/// se v těchto stavech znovu neukáže, takže je potřeba to udělat ručně.
+#[tauri::command]
+pub fn open_calendar_privacy_settings() {
+    open_fixed("x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars");
+}
+
+/// GitHub issues Ptáčka — pevná URL, veřejná betaverze prosí o hlášení chyb.
+#[tauri::command]
+pub fn open_github_issues() {
+    open_fixed("https://github.com/transformuj-ai/ptacek/issues");
 }
 
 /// Otevře Jakubův LinkedIn — pevná URL.

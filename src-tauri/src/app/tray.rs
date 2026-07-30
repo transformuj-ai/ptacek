@@ -11,6 +11,8 @@ struct TrayTexts {
     mute_1h: &'static str,
     mute_today: &'static str,
     muted_until: &'static str, // formát: "{} HH:MM …"
+    snooze: &'static str,
+    close_flyby: &'static str,
     setting: &'static str,
     quit: &'static str,
     about: &'static str,
@@ -23,6 +25,8 @@ fn texts(lang: &str) -> TrayTexts {
             mute_1h: "Mute for 1 hour",
             mute_today: "Mute until tomorrow",
             muted_until: "Muted until {} — click to unmute",
+            snooze: "Snooze flyby by 5 minutes",
+            close_flyby: "Close flyby",
             setting: "Settings…",
             quit: "Quit",
             about: "Made by Transformuj.ai",
@@ -33,6 +37,8 @@ fn texts(lang: &str) -> TrayTexts {
             mute_1h: "Ztlumit na 1 hodinu",
             mute_today: "Ztlumit do konce dne",
             muted_until: "Ztlumeno do {} — kliknutím zrušíš",
+            snooze: "Odložit o 5 minut",
+            close_flyby: "Zavřít přelet",
             setting: "Nastavení…",
             quit: "Ukončit",
             about: "Vyrobeno v Transformuj.ai",
@@ -46,6 +52,13 @@ pub fn init_system_tray() -> SystemTray {
         .add_item(CustomMenuItem::new("try_now".to_string(), t.try_now))
         .add_item(CustomMenuItem::new("mute_1h".to_string(), t.mute_1h))
         .add_item(CustomMenuItem::new("mute_today".to_string(), t.mute_today))
+        .add_native_item(SystemTrayMenuItem::Separator)
+        // P1.5: klávesnicová/tray cesta k „Odložit"/„Zavřít" — ekvivalent
+        // hover karty na overlayi, který je záměrně click-through a bez
+        // fokusu. Enabled jen dokud fakt nějaký přelet letí (viz
+        // window::open_overlay / close_overlay).
+        .add_item(CustomMenuItem::new("tray_snooze".to_string(), t.snooze).disabled())
+        .add_item(CustomMenuItem::new("tray_close".to_string(), t.close_flyby).disabled())
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(CustomMenuItem::new("setting".to_string(), t.setting))
         .add_native_item(SystemTrayMenuItem::Separator)
@@ -62,11 +75,21 @@ pub fn apply_language(app: &AppHandle) {
     let t = texts(&cfg.language);
     let tray = app.tray_handle();
     let _ = tray.get_item("try_now").set_title(t.try_now);
+    let _ = tray.get_item("tray_snooze").set_title(t.snooze);
+    let _ = tray.get_item("tray_close").set_title(t.close_flyby);
     let _ = tray.get_item("setting").set_title(t.setting);
     let _ = tray.get_item("quit").set_title(t.quit);
     let _ = tray.get_item("about").set_title(t.about);
     let now = chrono::Local::now().timestamp();
     set_mute_titles(app, cfg.mute_until.filter(|ts| *ts > now));
+}
+
+/// Zapne/vypne „Odložit o 5 minut" a „Zavřít přelet" v tray menu — platí
+/// jen, když nějaký přelet fakt letí (window::open_overlay/close_overlay).
+pub fn set_flyby_actions_enabled(app: &AppHandle, enabled: bool) {
+    let tray = app.tray_handle();
+    let _ = tray.get_item("tray_snooze").set_enabled(enabled);
+    let _ = tray.get_item("tray_close").set_enabled(enabled);
 }
 
 /// Promítne stav ztlumení do titulků tray položek, ať je na první pohled
@@ -116,6 +139,22 @@ pub fn handle_tray_event(app: &AppHandle, event: SystemTrayEvent) {
             "try_now" => {
                 info!("Tray: Vyzkoušet teď — spouštím demo přelet");
                 window::open_overlay(app, "mode=demo&mascot=random");
+            }
+            // P1.5: stejná akce jako hover karta na overlayi, jen bez
+            // myši. Enabled jen když window::active_overlay() něco vrátí
+            // (tray_snooze/tray_close jsou jinak disabled — viz
+            // set_flyby_actions_enabled), takže „nic neletí" tu prakticky
+            // nenastane; kdyby ano, tiše nic neuděláme.
+            "tray_snooze" => match window::active_overlay() {
+                Some(info) => {
+                    info!("Tray: Odložit o 5 minut");
+                    super::cmd::snooze_flyby(app.clone(), info.title, info.time, info.mascot);
+                }
+                None => info!("Tray: Odložit o 5 minut — žádný přelet zrovna neletí"),
+            },
+            "tray_close" => {
+                info!("Tray: Zavřít přelet");
+                window::close_overlay(app);
             }
             "mute_1h" => {
                 let cfg = super::conf::AppConfig::new();

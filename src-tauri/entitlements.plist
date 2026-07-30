@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Hardened Runtime bez tohohle entitlementu nechá TCC žádost o
+	     kalendář tiše propadnout (EventKit vrátí granted=false hned,
+	     bez systémového dialogu). Minimální rozsah — nic dalšího appka
+	     nepotřebuje. -->
+	<key>com.apple.security.personal-information.calendars</key>
+	<true/>
+</dict>
+</plist>

@@ -24,6 +24,65 @@ pub fn touch_keepalive() {
     }
 }
 
+/// P1.5: payload právě letícího přeletu — tray potřebuje stejná data,
+/// jaká má hover karta (title/time/mascot), aby „Odložit o 5 minut"
+/// a „Zavřít přelet" fungovaly i bez myši nad maskotem.
+#[derive(Clone, Default)]
+pub struct OverlayInfo {
+    pub title: String,
+    pub time: String,
+    pub mascot: String,
+}
+
+static ACTIVE_OVERLAY: std::sync::OnceLock<std::sync::Mutex<Option<OverlayInfo>>> =
+    std::sync::OnceLock::new();
+
+fn active_overlay_cell() -> &'static std::sync::Mutex<Option<OverlayInfo>> {
+    ACTIVE_OVERLAY.get_or_init(|| std::sync::Mutex::new(None))
+}
+
+/// Info o právě letícím přeletu pro tray akce; `None` = žádný neletí.
+pub fn active_overlay() -> Option<OverlayInfo> {
+    active_overlay_cell().lock().ok().and_then(|g| g.clone())
+}
+
+fn set_active_overlay(info: Option<OverlayInfo>) {
+    if let Ok(mut g) = active_overlay_cell().lock() {
+        *g = info;
+    }
+}
+
+/// Minimální percent-decode (inverze `scheduler::percent_encode`) —
+/// dost na to, co appka sama do URL zakóduje.
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(byte) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
+                out.push(byte);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+fn query_param(query: &str, key: &str) -> String {
+    for pair in query.split('&') {
+        if let Some((k, v)) = pair.split_once('=') {
+            if k == key {
+                return percent_decode(v);
+            }
+        }
+    }
+    String::new()
+}
+
 /// Otevře overlay okno přes celý primární monitor a spustí přelet.
 /// `query` jde do URL (např. "mode=demo"); payload čte frontend přes
 /// URLSearchParams. Okno existuje jen po dobu přeletu — zavírá ho
@@ -132,6 +191,24 @@ pub fn open_overlay(app: &AppHandle, query: &str) -> bool {
         }
     });
 
+    // P1.5: uložit payload pro tray akce a zpřístupnit „Odložit"/„Zavřít"
+    // v tray menu — ekvivalentní cesta pro klávesnici/VoiceOver, když se
+    // uživatel nedostane myší nad maskota.
+    let title = {
+        let full = query_param(query, "full");
+        if full.is_empty() {
+            query_param(query, "title")
+        } else {
+            full
+        }
+    };
+    set_active_overlay(Some(OverlayInfo {
+        title,
+        time: query_param(query, "time"),
+        mascot: query_param(query, "mascot"),
+    }));
+    super::tray::set_flyby_actions_enabled(app, true);
+
     info!("Overlay okno vytvořeno ({query})");
     true
 }
@@ -180,6 +257,8 @@ fn target_monitor(window: &tauri::Window) -> Option<tauri::Monitor> {
 }
 
 pub fn close_overlay(app: &AppHandle) {
+    set_active_overlay(None);
+    super::tray::set_flyby_actions_enabled(app, false);
     if let Some(window) = app.get_window(OVERLAY_LABEL) {
         if let Err(err) = window.close() {
             error!("Zavření overlay okna selhalo: {err}");
@@ -226,5 +305,32 @@ fn raise_above_everything(window: &tauri::Window) {
 
     if let Err(err) = result {
         error!("run_on_main_thread pro level fix selhalo: {err}");
+    }
+}
+
+#[cfg(test)]
+mod query_param_tests {
+    use super::{percent_decode, query_param};
+
+    #[test]
+    fn dekoduje_procentove_escapy() {
+        assert_eq!(percent_decode("Sch%C5%AFzka"), "Schůzka");
+        assert_eq!(percent_decode("bez%20escapu"), "bez escapu");
+        assert_eq!(percent_decode("nic"), "nic");
+    }
+
+    #[test]
+    fn nedokoncene_escapy_na_konci_neshodi_dekoder() {
+        assert_eq!(percent_decode("a%2"), "a%2");
+        assert_eq!(percent_decode("a%"), "a%");
+    }
+
+    #[test]
+    fn query_param_najde_hodnotu_podle_klice() {
+        let q = "mode=event&mascot=bird&title=Sch%C5%AFzka&time=14%3A00";
+        assert_eq!(query_param(q, "mascot"), "bird");
+        assert_eq!(query_param(q, "title"), "Schůzka");
+        assert_eq!(query_param(q, "time"), "14:00");
+        assert_eq!(query_param(q, "full"), "");
     }
 }

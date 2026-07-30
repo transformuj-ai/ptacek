@@ -8,6 +8,10 @@ Vyrobil [Transformuj.ai](https://transformuj.ai) · macOS 12+ · zdarma · MIT
 
 ![Nastavení Ptáčka](docs/nastaveni.png)
 
+## Veřejná betaverze
+
+Ptáček je veřejná betaverze. Appka funguje a je bezpečná k použití, ale pořád ji ladíme — občas můžeš narazit na chybu. Když se to stane, napiš nám prosím na [GitHub Issues](https://github.com/transformuj-ai/ptacek/issues) — popiš, co se stalo, a pokud jde, přilož i macOS verzi. Tvá data zůstávají jen v tvém počítači (appka nemá servery ani telemetrii), takže hlášení chyby se nikdy netýká ničeho soukromého.
+
 ## Co umí
 
 - **10 maskotů**: oranžový ptáček, papírová vlaštovka, letadélko s transparentem, kocour, dron s balíčkem, robot poslíček, formule, balón, hejno ptáků skládající „TEĎ", pixel-art pták

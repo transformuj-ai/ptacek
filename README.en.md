@@ -10,6 +10,10 @@ Made by [Transformuj.ai](https://transformuj.ai/en) · macOS 12+ · free · MIT
 
 ![Ptáček settings](docs/settings-en.png)
 
+## Public beta
+
+Ptáček is a public beta. The app works and is safe to use, but we're still polishing it — you might occasionally hit a bug. If that happens, please tell us on [GitHub Issues](https://github.com/transformuj-ai/ptacek/issues) — describe what happened and include your macOS version if you can. Your data stays on your own machine (no servers, no telemetry), so reporting a bug never involves anything private.
+
 ## What it does
 
 - **10 mascots** as pure CSS/SVG animations: orange bird, paper plane, banner plane, cat, delivery drone, courier robot, formula car, hot-air balloon, a flock that spells out a word, and an 8-bit pixel bird

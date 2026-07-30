@@ -192,6 +192,8 @@ fn build_app() {
             cmd::set_launch_at_login,
             cmd::open_transformuj,
             cmd::open_linkedin,
+            cmd::open_calendar_privacy_settings,
+            cmd::open_github_issues,
             cmd::set_ics_url,
             cmd::clear_ics_url,
             cmd::test_ics_url,

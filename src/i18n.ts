@@ -6,6 +6,13 @@ export type Lang = "cs" | "en";
 const STRINGS = {
   cs: {
     tagline: "Schůzky, které přeletí obrazovku · Vyrobeno v Transformuj.ai",
+    betaBadge: "Veřejná betaverze",
+    betaInfoLabel: "Co znamená betaverze",
+    betaInfoText:
+      "Ptáček je veřejná betaverze. Appka funguje a je bezpečná k použití, ale pořád ji ladíme — občas můžeš narazit na chybu. Když se to stane, napiš nám prosím na GitHubu. Tvá data zůstávají jen v tvém počítači.",
+    betaReportBug: "Nahlásit chybu",
+    betaAboutLine:
+      "Ptáček je veřejná betaverze — appku pořád ladíme, chyby hlaš prosím na GitHubu.",
     tryFlyby: "Vyzkoušet přelet",
     secFlyby: "Přelet",
     textMode: "Co má maskot říkat",
@@ -96,7 +103,15 @@ const STRINGS = {
     calRefused:
       "Přístup nebyl udělen. Můžeš ho kdykoli zapnout v Nastavení systému → Soukromí a zabezpečení → Kalendáře, nebo použít adresu kalendáře níže.",
     calDenied:
-      "Přístup ke kalendáři je zamítnutý. Povol ho v Nastavení systému → Soukromí a zabezpečení → Kalendáře.",
+      "Přístup ke kalendáři je zamítnutý. Systémový dialog se už znovu neukáže (macOS si to buď pamatuje, nebo appku po aktualizaci nepoznává) — povol ho ručně v Nastavení systému.",
+    calOpenSystemSettings: "Otevřít Nastavení systému",
+    calWriteOnly:
+      "Ptáček zatím smí do kalendáře jen zapisovat, ale ne číst — bez čtení neví, kdy máš schůzku. Přepni na plný přístup v Nastavení systému.",
+    calEmpty:
+      "Přístup funguje, ale v systému nejsou žádné kalendáře. Přidej účet v Nastavení systému → Internetové účty.",
+    autostartFail:
+      "Nastavení spouštění po přihlášení se nepovedlo uložit. Zkus to prosím znovu.",
+    demoFail: "Ukázkový přelet se nepovedlo spustit. Zkus to prosím znovu.",
     secIcs: "Google kalendář bez připojování účtu",
     icsHint:
       "Nechceš Google účet přidávat do Macu? Google umí pro kalendář vytvořit soukromý odkaz — funguje jako klíč od jedněch dveří: kdo ho má, vidí jen kdy máš schůzky. Nedostane se do e-mailu a nemůže nic měnit.",
@@ -151,6 +166,13 @@ const STRINGS = {
   },
   en: {
     tagline: "Meetings that fly across your screen · Made by Transformuj.ai",
+    betaBadge: "Public beta",
+    betaInfoLabel: "What public beta means",
+    betaInfoText:
+      "Ptáček is a public beta. The app works and is safe to use, but we're still polishing it — you might occasionally hit a bug. If that happens, please tell us on GitHub. Your data never leaves your computer.",
+    betaReportBug: "Report a bug",
+    betaAboutLine:
+      "Ptáček is a public beta — we're still polishing it, please report bugs on GitHub.",
     tryFlyby: "Try a flyby",
     secFlyby: "Flyby",
     textMode: "What the mascot says",
@@ -239,7 +261,15 @@ const STRINGS = {
     calRefused:
       "Access was not granted. You can enable it anytime in System Settings → Privacy & Security → Calendars, or use the calendar address below.",
     calDenied:
-      "Calendar access is denied. Allow it in System Settings → Privacy & Security → Calendars.",
+      "Calendar access is denied. The system dialog will not show up again (macOS either remembers this, or does not recognize the app after an update) — allow it manually in System Settings.",
+    calOpenSystemSettings: "Open System Settings",
+    calWriteOnly:
+      "Ptáček can currently only write to your calendar, not read it — without reading it cannot know when your meetings are. Switch to full access in System Settings.",
+    calEmpty:
+      "Access works, but there are no calendars on this system. Add an account in System Settings → Internet Accounts.",
+    autostartFail:
+      "Saving the launch-at-login setting failed. Please try again.",
+    demoFail: "The demo flyby failed to start. Please try again.",
     secIcs: "Google Calendar without connecting an account",
     icsHint:
       "Don't want to add your Google account to the Mac? Google can create a private link for a calendar — it works like a key to one door: whoever has it can only see when you have meetings. No access to your email, no way to change anything.",
