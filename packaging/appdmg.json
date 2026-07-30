@@ -1,0 +1,10 @@
+{
+  "title": "Ptáček",
+  "icon": "../src-tauri/icons/icon.icns",
+  "background": "dmg-bg@2x.png",
+  "window": { "size": { "width": 660, "height": 420 } },
+  "contents": [
+    { "x": 200, "y": 235, "type": "file", "path": "../src-tauri/target/release/bundle/macos/Ptáček.app" },
+    { "x": 465, "y": 235, "type": "link", "path": "/Applications" }
+  ]
+}
