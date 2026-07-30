@@ -43,18 +43,26 @@ fn build_app() {
             // Nejčastější chyba při instalaci: uživatel appku spustí
             // rovnou z připojeného DMG. Pak se chová divně (nastavení
             // i oprávnění zmizí, jakmile DMG odpojí). Poradíme mu.
+            // Spuštění z DMG nebo z „App Translocation" (macOS appku
+            // stažených z internetu spustí z náhodné cesty jen pro čtení,
+            // pokud se do Aplikací nedostane přetažením ve Finderu).
+            // V obou případech se nastavení ani oprávnění neuloží.
             #[cfg(target_os = "macos")]
             if std::env::current_exe()
-                .map(|p| p.starts_with("/Volumes/"))
+                .map(|p| {
+                    let s = p.to_string_lossy().to_string();
+                    s.starts_with("/Volumes/") || s.contains("/AppTranslocation/")
+                })
                 .unwrap_or(false)
             {
                 let _ = std::process::Command::new("/usr/bin/osascript")
                     .arg("-e")
                     .arg(
                         "display alert \"Ptáčka je potřeba nejdřív nainstalovat\" \
-                         message \"Spustil jsi ho přímo z otevřeného obrazu disku. \
-                         Přetáhni ikonu Ptáčka do složky Aplikace a spusť ho odtamtud \
-                         — jinak se nastavení ani povolení kalendáře neuloží.\" \
+                         message \"Teď běží z dočasného umístění, takže si nezapamatuje \
+                         nastavení ani povolení kalendáře.\n\nOtevři obraz disku Ptáček, \
+                         přetáhni ikonu myší do složky Aplikace a spusť ho odtamtud. \
+                         Tuhle kopii pak můžeš zavřít.\" \
                          as critical buttons {\"Rozumím\"} default button 1",
                     )
                     .spawn();
