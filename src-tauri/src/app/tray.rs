@@ -77,17 +77,18 @@ fn set_mute_titles(app: &AppHandle, until: Option<i64>) {
     match until {
         Some(ts) => {
             let time = chrono::DateTime::from_timestamp(ts, 0)
-                .map(|dt| {
-                    dt.with_timezone(&chrono::Local)
-                        .format("%H:%M")
-                        .to_string()
-                })
+                .map(|dt| dt.with_timezone(&chrono::Local).format("%H:%M").to_string())
                 .unwrap_or_default();
             let label = t.muted_until.replace("{}", &time);
-            for id in ["mute_1h", "mute_today"] {
-                if let Err(err) = tray.get_item(id).set_title(&label) {
-                    error!("set_title({id}) selhalo: {err}");
-                }
+            // Stav patří JEN na tu položku, kterou uživatel použil —
+            // jinak menu vypadá, že je tam dvakrát totéž. Druhá zůstává
+            // funkční, takže ztlumení jde prodloužit do konce dne.
+            if is_end_of_day(ts) {
+                let _ = tray.get_item("mute_today").set_title(&label);
+                let _ = tray.get_item("mute_1h").set_title(t.mute_1h);
+            } else {
+                let _ = tray.get_item("mute_1h").set_title(&label);
+                let _ = tray.get_item("mute_today").set_title(t.mute_today);
             }
         }
         None => {
@@ -95,6 +96,16 @@ fn set_mute_titles(app: &AppHandle, until: Option<i64>) {
             let _ = tray.get_item("mute_today").set_title(t.mute_today);
         }
     }
+}
+
+/// Je čas přesně půlnoc? (tak vypadá „ztlumit do konce dne")
+fn is_end_of_day(ts: i64) -> bool {
+    chrono::DateTime::from_timestamp(ts, 0)
+        .map(|dt| {
+            let local = dt.with_timezone(&chrono::Local);
+            local.format("%H:%M").to_string() == "00:00"
+        })
+        .unwrap_or(false)
 }
 
 pub fn handle_tray_event(app: &AppHandle, event: SystemTrayEvent) {
@@ -109,7 +120,10 @@ pub fn handle_tray_event(app: &AppHandle, event: SystemTrayEvent) {
             "mute_1h" => {
                 let cfg = super::conf::AppConfig::new();
                 let now = chrono::Local::now().timestamp();
-                if cfg.mute_until.is_some_and(|t| t > now) {
+                let active_hour_mute = cfg
+                    .mute_until
+                    .is_some_and(|t| t > now && !is_end_of_day(t));
+                if active_hour_mute {
                     super::conf::set_mute_until(app, None);
                     set_mute_titles(app, None);
                 } else {
@@ -121,7 +135,10 @@ pub fn handle_tray_event(app: &AppHandle, event: SystemTrayEvent) {
             "mute_today" => {
                 let cfg = super::conf::AppConfig::new();
                 let now = chrono::Local::now().timestamp();
-                if cfg.mute_until.is_some_and(|t| t > now) {
+                let active_day_mute = cfg
+                    .mute_until
+                    .is_some_and(|t| t > now && is_end_of_day(t));
+                if active_day_mute {
                     super::conf::set_mute_until(app, None);
                     set_mute_titles(app, None);
                 } else {

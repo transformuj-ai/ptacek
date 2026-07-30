@@ -31,6 +31,7 @@
   position: absolute;
   left: 105px;
   top: -14px;
+  width: max-content;
   opacity: 0;
   animation: k8sign calc(var(--cycle) * var(--speed, 1)) cubic-bezier(0.2, 0.7, 0.2, 1) 1 forwards;
 }

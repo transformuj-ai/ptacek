@@ -4,11 +4,11 @@
 
 **Meetings that fly across your screen.** A few minutes before a meeting, a mascot flies across your monitor with a heads-up — over every window, including full-screen presentations. Impossible to miss, gone in seconds.
 
-Made by [Transformuj.ai](https://transformuj.ai) · macOS 12+ · free · MIT
+Made by [Transformuj.ai](https://transformuj.ai/en) · macOS 12+ · free · MIT
 
 🇨🇿 [Česká verze README](README.md)
 
-![Ptáček settings](docs/nastaveni.png)
+![Ptáček settings](docs/settings-en.png)
 
 ## What it does
 
@@ -54,4 +54,4 @@ MIT. The app is provided “as is”, without any warranty; we accept no liabili
 
 ---
 
-*Using Ptáček? You get 10% off Transformuj.ai services and selected partners — just get in touch and mention Ptáček.*
+*Using Ptáček? You get 10% off [Transformuj.ai](https://transformuj.ai/en) services and selected partners — just get in touch and mention Ptáček.*

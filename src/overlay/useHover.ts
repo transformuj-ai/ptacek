@@ -18,6 +18,11 @@ export function useHover() {
   const [hover, setHover] = useState(false);
   const hoverRef = useRef(false);
   const lastInsideAt = useRef(0);
+  // Maskot letí přes celou obrazovku a může podletět pod nehybným
+  // kurzorem — to není záměr uživatele. Hover proto povolíme až
+  // poté, co s myší skutečně pohne.
+  const startPos = useRef<{ x: number; y: number } | null>(null);
+  const moved = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -33,6 +38,17 @@ export function useHover() {
         return;
       }
       if (!pos) return;
+
+      if (!moved.current) {
+        if (startPos.current === null) {
+          startPos.current = { x: pos.clientX, y: pos.clientY };
+          return;
+        }
+        const dx = Math.abs(pos.clientX - startPos.current.x);
+        const dy = Math.abs(pos.clientY - startPos.current.y);
+        if (dx + dy < 8) return; // myš stojí → žádný hover
+        moved.current = true;
+      }
 
       const targets = document.querySelectorAll<HTMLElement>(
         ".act, .bd, .hover-card"

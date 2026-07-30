@@ -53,6 +53,9 @@
   position: absolute;
   left: 7px;
   top: -34px;
+  /* bez tohohle se cedule vejde jen do šířky maskota (containing
+     block = .act) a text se zalomí do svislého proužku */
+  width: max-content;
   transform-origin: left bottom;
   opacity: 0;
   animation: k4sign calc(var(--cycle) * var(--speed, 1)) cubic-bezier(0.2, 0.7, 0.2, 1) 1 forwards;
