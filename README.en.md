@@ -4,7 +4,7 @@
 
 **Meetings that fly across your screen.** A few minutes before a meeting, a mascot flies across your monitor with a heads-up — over every window, including full-screen presentations. Impossible to miss, gone in seconds.
 
-Made by [Transformuj.ai](https://transformuj.ai/en) · macOS 12+ · free · MIT
+Made by [Transformuj.ai](https://transformuj.ai/en) · macOS 14+ · free · MIT
 
 > **Using Ptáček? You get a 10% discount** on Transformuj.ai services and selected partners. Just [reach out](https://transformuj.ai/en) and mention Ptáček.
 
@@ -55,11 +55,14 @@ Code comments are in Czech — the app was built by a Czech team and we kept the
 
 ## What is and isn't tested
 
-Physically tested on an M3 MacBook Air running macOS 26. On macOS 12/13
-the app uses the older Apple calendar-permission API (per Apple TN3152),
-but we didn't have a real machine with those systems — reports welcome.
+Physically tested on an M3 MacBook Air running macOS 26. We support
+macOS 14 and newer — the code carries a ready fallback to the older
+calendar-permission API for macOS 12/13 (per Apple TN3152), but we
+didn't have a real machine with those systems, so they're officially
+unsupported until physically verified.
 Multi-monitor support is written but so far tested on a single display.
-The overlay is mouse-only for now (keyboard/VoiceOver on the roadmap).
+You can snooze or close a flying mascot without a mouse via the menu
+bar; a full VoiceOver pass is on the roadmap.
 
 ## Support
 

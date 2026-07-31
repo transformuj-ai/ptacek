@@ -214,23 +214,72 @@ pub async fn fetch_events(hours: f64) -> Result<Vec<CalEvent>, String> {
         }
     };
 
-    // streamovaný limit velikosti PO dekompresi
+    // streamovaný limit velikosti PO dekompresi. Obě chybové cesty
+    // (limit i přerušené čtení) MUSÍ vrátit Err — tichý `break` by
+    // vyrobil částečná/oříznutá data, která se dál zpracují jako
+    // validní (byť možná prázdný) kalendář a scheduler by na jejich
+    // základě smazal platnou frontu upozornění.
     let mut body: Vec<u8> = Vec::new();
     let mut stream = resp.bytes_stream();
     while let Some(chunk) = stream.next().await {
         match chunk {
             Ok(bytes) => {
-                if body.len() + bytes.len() > MAX_BYTES {
-                    warn!("ICS feed přes {MAX_BYTES} B, uříznut");
-                    break;
+                if let Err(e) = accumulate_chunk(&mut body, &bytes) {
+                    warn!("ICS: {e}");
+                    return Err(e);
                 }
-                body.extend_from_slice(&bytes);
             }
-            Err(_) => break,
+            Err(e) => {
+                warn!("ICS: čtení těla se přerušilo ({e})");
+                return Err(READ_ERROR.into());
+            }
         }
     }
 
+    if !looks_like_ics(&body) {
+        warn!("ICS: obsah nemá hlavičku BEGIN:VCALENDAR (HTTP 200, ale ne kalendář)");
+        return Err(NOT_ICS_ERROR.into());
+    }
+
     Ok(parse_ics(&body, hours))
+}
+
+const SIZE_LIMIT_ERROR: &str = "kalendář je příliš velký (limit 5 MB po rozbalení)";
+const READ_ERROR: &str = "stahování kalendáře se uprostřed přerušilo, zkus to znovu";
+const NOT_ICS_ERROR: &str = "adresa nevrací kalendář (možná vyžaduje přihlášení)";
+
+/// Přidá chunk do těla a hlídá limit velikosti PO dekompresi. Sdílené
+/// mezi produkčním streamem a testy, ať je chování na jednom místě.
+fn accumulate_chunk(body: &mut Vec<u8>, chunk: &[u8]) -> Result<(), String> {
+    if body.len() + chunk.len() > MAX_BYTES {
+        return Err(SIZE_LIMIT_ERROR.into());
+    }
+    body.extend_from_slice(chunk);
+    Ok(())
+}
+
+/// Stejná logika jako produkční stream smyčka výše, ale nad synchronním
+/// iterátorem — testovatelné offline (bez reqwestu/tokia), včetně chyby
+/// uprostřed čtení.
+#[cfg(test)]
+fn collect_body_limited(
+    chunks: impl IntoIterator<Item = Result<Vec<u8>, ()>>,
+) -> Result<Vec<u8>, String> {
+    let mut body = Vec::new();
+    for chunk in chunks {
+        let bytes = chunk.map_err(|_| READ_ERROR.to_string())?;
+        accumulate_chunk(&mut body, &bytes)?;
+    }
+    Ok(body)
+}
+
+/// Detekce „je tohle vůbec ICS?" — tolerantní na BOM, whitespace na
+/// začátku a velikost písmen. HTTP 200 s HTML přihlašovací stránkou
+/// (typicky expirovaný/špatný token) tudy neprojde.
+fn looks_like_ics(body: &[u8]) -> bool {
+    let stripped = body.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(body);
+    let text = String::from_utf8_lossy(stripped);
+    text.trim_start().to_ascii_uppercase().starts_with("BEGIN:VCALENDAR")
 }
 
 /// Mezistav jedné VEVENT před vyhodnocením vazeb (RRULE × EXDATE ×
@@ -816,4 +865,68 @@ mod tests {
         assert!(t0.elapsed().as_secs() < 3, "expanze nesmí trvat věčnost");
     }
 
+    // --- Robustnost stahování (Codex review): chyba ≠ prázdný kalendář ---
+    // Scheduler čte Err jinak než Ok(prázdno) — Err nechá starou frontu
+    // upozornění stát, Ok(prázdno) ji vyčistí. Kdyby limit/read-error/ne-ICS
+    // obsah tiše spadly do Ok, platná fronta by zmizela na základě chyby.
+
+    #[test]
+    fn payload_pres_limit_je_err() {
+        let big = vec![b'a'; MAX_BYTES + 1];
+        let result = collect_body_limited(std::iter::once(Ok(big)));
+        assert!(result.is_err(), "tělo nad 5 MB musí být Err, ne tiché oříznutí");
+    }
+
+    #[test]
+    fn payload_presne_na_limitu_projde() {
+        let ok_size = vec![b'a'; MAX_BYTES];
+        let result = collect_body_limited(std::iter::once(Ok(ok_size)));
+        assert!(result.is_ok(), "přesně na limitu ještě musí projít");
+    }
+
+    #[test]
+    fn soucet_chunku_pres_limit_je_err() {
+        // limit se hlídá i přes víc chunků, ne jen jeden velký
+        let half = vec![b'a'; MAX_BYTES / 2 + 1];
+        let chunks = vec![Ok(half.clone()), Ok(half)];
+        assert!(collect_body_limited(chunks).is_err());
+    }
+
+    #[test]
+    fn read_error_uprostred_stahovani_je_err() {
+        let chunks: Vec<Result<Vec<u8>, ()>> =
+            vec![Ok(b"BEGIN:VCALENDAR\r\n".to_vec()), Err(()), Ok(b"END:VCALENDAR\r\n".to_vec())];
+        let result = collect_body_limited(chunks);
+        assert!(
+            result.is_err(),
+            "chyba čtení uprostřed streamu nesmí vyrobit částečný Ok"
+        );
+    }
+
+    #[test]
+    fn html_misto_ics_neprojde_detekci() {
+        assert!(!looks_like_ics(b"<html><body>login</body></html>"));
+    }
+
+    #[test]
+    fn prazdny_obsah_neprojde_detekci() {
+        assert!(!looks_like_ics(b""));
+    }
+
+    #[test]
+    fn validni_ics_projde_detekci_s_bom_a_whitespace() {
+        // BOM + úvodní mezery/nové řádky + malá písmena — feedy se v tomhle
+        // liší, detekce musí být tolerantní na všechny tři zvlášť
+        let mut body = vec![0xEF, 0xBB, 0xBF];
+        body.extend_from_slice(b"  \r\n begin:vcalendar\r\nEND:VCALENDAR\r\n");
+        assert!(looks_like_ics(&body));
+    }
+
+    #[test]
+    fn validni_prazdny_vcalendar_je_ok_0_udalosti() {
+        // legitimní prázdný kalendář zůstává Ok — to NENÍ chyba
+        let body = b"BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n";
+        assert!(looks_like_ics(body));
+        assert!(parse_ics(body, 24.0).is_empty());
+    }
 }

@@ -2,7 +2,7 @@
 
 **Schůzky, které přeletí obrazovku.** Pár minut před schůzkou přeletí přes monitor maskot s upozorněním — přes všechna okna, i přes fullscreen prezentaci. Nejde přehlédnout a za pár vteřin sám zmizí.
 
-Vyrobil [Transformuj.ai](https://transformuj.ai) · macOS 12+ · zdarma · MIT
+Vyrobil [Transformuj.ai](https://transformuj.ai) · macOS 14+ · zdarma · MIT
 
 > **Používáš Ptáčka? Máš 10% slevu** na služby Transformuj.ai a vybraných partnerů. Stačí se [ozvat](https://transformuj.ai) a zmínit Ptáčka.
 
@@ -49,11 +49,14 @@ Stack: Tauri v1 + React + TypeScript, EventKit přes objc2, maskoti = čisté CS
 
 ## Co je a není otestované
 
-Fyzicky testováno na MacBooku Air M3 s macOS 26. Na macOS 12 a 13 appka
-používá starší Apple API pro žádost o kalendář (přesně dle Apple TN3152),
-ale reálný stroj s těmito systémy jsme v ruce neměli — kdyby něco, ozvi se.
+Fyzicky testováno na MacBooku Air M3 s macOS 26. Podporujeme macOS 14
+a novější — kód má připravený fallback na starší kalendářové API pro
+macOS 12/13 (dle Apple TN3152), ale reálný stroj s těmito systémy jsme
+v ruce neměli, takže je zatím oficiálně nepodporujeme. Až je fyzicky
+ověříme, podporu rozšíříme.
 Multi-monitor podpora je napsaná, ale testovaná zatím na jednom displeji.
-Ovládání overlaye je zatím jen myší (klávesnice/VoiceOver v plánu).
+Odložit nebo zavřít letící přelet jde i bez myši přes menu horní lišty;
+plný VoiceOver průchod je v plánu.
 
 ## Podpora
 

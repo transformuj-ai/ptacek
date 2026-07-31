@@ -24,6 +24,33 @@ pub fn touch_keepalive() {
     }
 }
 
+/// Generace overlay okna — každé úspěšné `open_overlay` ji zvýší.
+/// Všechna overlay okna sdílejí label, takže failsafe úloha starého
+/// přeletu by jinak „viděla" čerstvé okno dalšího přeletu a zabila ho
+/// uprostřed animace (stačilo spustit dva přelety do 25 s po sobě).
+static OVERLAY_GEN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Verdikt jedné failsafe kontroly — čistá funkce kvůli testům.
+#[derive(Debug, PartialEq, Eq)]
+enum FailsafeVerdict {
+    /// okno patří novější generaci — úloha končí a na okno nesahá
+    HandsOff,
+    /// uživatel s vlastním oknem pracuje (hover) — kontrolovat dál
+    KeepWaiting,
+    /// vlastní okno bez známek života — zavřít
+    Close,
+}
+
+fn failsafe_verdict(task_gen: u64, current_gen: u64, alive_recently: bool) -> FailsafeVerdict {
+    if current_gen != task_gen {
+        FailsafeVerdict::HandsOff
+    } else if alive_recently {
+        FailsafeVerdict::KeepWaiting
+    } else {
+        FailsafeVerdict::Close
+    }
+}
+
 /// P1.5: payload právě letícího přeletu — tray potřebuje stejná data,
 /// jaká má hover karta (title/time/mascot), aby „Odložit o 5 minut"
 /// a „Zavřít přelet" fungovaly i bez myši nad maskotem.
@@ -166,28 +193,33 @@ pub fn open_overlay(app: &AppHandle, query: &str) -> bool {
     // flashe z cold-startu WebView. Failsafe: kdyby se frontend nikdy
     // neozval (zombie WebView), smyčka níže okno zavře při první
     // kontrole bez keep-alive (kontroluje se à 25 s).
+    let task_gen = OVERLAY_GEN.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
         // Failsafe: zombie okno zavřít. Když uživatel drží myš na
         // maskotovi (hover pauzuje animaci), okno žít smí — hover
-        // posílá keep-alive a failsafe se posune.
+        // posílá keep-alive a failsafe se posune. Úloha smí sahat JEN
+        // na okno vlastní generace (viz OVERLAY_GEN) a zavírá přes
+        // close_overlay, aby se uklidil i stav tray akcí.
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(25)).await;
-            let Some(w) = app_handle.get_window(OVERLAY_LABEL) else {
+            if app_handle.get_window(OVERLAY_LABEL).is_none() {
                 break;
-            };
+            }
             let alive_recently = keepalive_cell()
                 .lock()
                 .map(|g| g.elapsed() < std::time::Duration::from_secs(25))
                 .unwrap_or(false);
-            if alive_recently {
-                continue; // uživatel s ním pracuje
+            let current_gen = OVERLAY_GEN.load(std::sync::atomic::Ordering::SeqCst);
+            match failsafe_verdict(task_gen, current_gen, alive_recently) {
+                FailsafeVerdict::HandsOff => break,
+                FailsafeVerdict::KeepWaiting => continue,
+                FailsafeVerdict::Close => {
+                    info!("Overlay failsafe: okno žije bez aktivity, zavírám");
+                    close_overlay(&app_handle);
+                    break;
+                }
             }
-            info!("Overlay failsafe: okno žije bez aktivity, zavírám");
-            if let Err(err) = w.close() {
-                error!("Overlay failsafe close selhalo: {err}");
-            }
-            break;
         }
     });
 
@@ -305,6 +337,31 @@ fn raise_above_everything(window: &tauri::Window) {
 
     if let Err(err) = result {
         error!("run_on_main_thread pro level fix selhalo: {err}");
+    }
+}
+
+#[cfg(test)]
+mod failsafe_tests {
+    use super::{failsafe_verdict, FailsafeVerdict};
+
+    // Regrese z 31. 7.: všechna overlay okna sdílejí label a failsafe
+    // úloha starého přeletu zabíjela čerstvě letící okno — animace
+    // mizela v půlce. Úloha smí sahat jen na okno vlastní generace.
+
+    #[test]
+    fn novejsi_generace_je_nedotknutelna() {
+        assert_eq!(failsafe_verdict(1, 2, false), FailsafeVerdict::HandsOff);
+        assert_eq!(failsafe_verdict(1, 2, true), FailsafeVerdict::HandsOff);
+    }
+
+    #[test]
+    fn hover_drzi_vlastni_okno_nazivu() {
+        assert_eq!(failsafe_verdict(2, 2, true), FailsafeVerdict::KeepWaiting);
+    }
+
+    #[test]
+    fn vlastni_mrtve_okno_se_zavre() {
+        assert_eq!(failsafe_verdict(2, 2, false), FailsafeVerdict::Close);
     }
 }
 

@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "Ptacek",
-    "version": "0.1.3"
+    "version": "0.1.4"
   },
   "tauri": {
     "allowlist": {
@@ -35,7 +35,7 @@
       ],
       "macOS": {
         "signingIdentity": "-",
-        "minimumSystemVersion": "12.0",
+        "minimumSystemVersion": "14.0",
         "entitlements": "entitlements.plist"
       }
     },
