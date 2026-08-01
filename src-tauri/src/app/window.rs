@@ -1,3 +1,8 @@
+// sel_impl! makro ze staré crate objc generuje cfg(cargo-clippy), který
+// moderní rustc hlásí jako unexpected_cfgs. Není to náš kód; allow tady
+// drží clippy gate čistý s -D warnings bez celorepo výjimky.
+#![allow(unexpected_cfgs)]
+
 use log::{error, info};
 use mouse_position::mouse_position::Mouse;
 use tauri::{AppHandle, Manager, WindowBuilder, WindowUrl};
@@ -241,8 +246,19 @@ pub fn open_overlay(app: &AppHandle, query: &str) -> bool {
     }));
     super::tray::set_flyby_actions_enabled(app, true);
 
-    info!("Overlay okno vytvořeno ({query})");
+    // Privacy: query obsahuje title/full = skutečný název schůzky.
+    // Do logu jen bezpečná metadata, nikdy celý query.
+    info!("{}", overlay_log_line(query));
     true
+}
+
+/// Bezpečný popis overlaye pro log: mode + maskot + délka titulku.
+/// Název schůzky do logu NIKDY nepatří (viz privacy audit 2. 8. 2026).
+fn overlay_log_line(query: &str) -> String {
+    let mode = query_param(query, "mode");
+    let mascot = query_param(query, "mascot");
+    let title_len = query_param(query, "title").chars().count();
+    format!("Overlay okno vytvořeno (mode={mode} mascot={mascot} titulek={title_len} zn.)")
 }
 
 /// Na kterém monitoru se má přelet odehrát. Maskot má přeletět tam, kam
@@ -367,7 +383,19 @@ mod failsafe_tests {
 
 #[cfg(test)]
 mod query_param_tests {
-    use super::{percent_decode, query_param};
+    use super::{overlay_log_line, percent_decode, query_param};
+
+    /// Privacy regrese: název schůzky se nesmí objevit v log výstupu.
+    #[test]
+    fn log_radek_overlaye_neobsahuje_nazev_schuzky() {
+        let line = overlay_log_line(
+            "mode=event&mascot=bird&title=TAJNA%20SCHUZKA&full=TAJNA%20SCHUZKA%20XY&time=09:00",
+        );
+        assert!(!line.contains("TAJNA"), "titulek nesmí do logu: {line}");
+        assert!(!line.contains("SCHUZKA"), "titulek nesmí do logu: {line}");
+        assert!(line.contains("mode=event"));
+        assert!(line.contains("mascot=bird"));
+    }
 
     #[test]
     fn dekoduje_procentove_escapy() {

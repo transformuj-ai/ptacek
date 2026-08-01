@@ -65,6 +65,10 @@ export async function setSetting<K extends keyof AppSettings>(
     const store = new Store(path);
     await store.set("app", next);
     await store.save();
-    // scheduler přeplánuje hned, ne až za 5 minut
-    invoke("calendars_changed").catch(() => undefined);
+    // scheduler přeplánuje hned, ne až za 5 minut — ale jen když se mění
+    // výběr kalendářů, jinak zbytečně bouchá do calendar service při
+    // každé maličkosti (jazyk, zvuk, rychlost přeletu…)
+    if (key === "calendarIds") {
+        invoke("calendars_changed").catch(() => undefined);
+    }
 }

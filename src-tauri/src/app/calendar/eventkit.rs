@@ -83,9 +83,9 @@ fn calendar_access_api(full_access_selector_available: bool) -> CalendarAccessAp
 }
 
 /// Požádá o přístup (macOS ukáže TCC dialog právě jednou). Blokuje max
-/// `timeout` — nikdy nevolat z main threadu.
-pub fn request_access(timeout: Duration) -> bool {
-    let store = unsafe { EKEventStore::new() };
+/// `timeout` — nikdy nevolat z main threadu. Store dodává service:
+/// tenhle modul žádný nevytváří (viz service.rs, incident 1021).
+pub(super) fn request_access(store: &EKEventStore, timeout: Duration) -> bool {
     let (tx, rx) = mpsc::channel::<bool>();
 
     let block = RcBlock::new(
@@ -97,7 +97,7 @@ pub fn request_access(timeout: Duration) -> bool {
     unsafe {
         let ptr = &*block as *const block2::Block<_> as *mut block2::Block<_>;
         let supports_full_access: bool = msg_send![
-            &*store,
+            store,
             respondsToSelector: sel!(requestFullAccessToEventsWithCompletion:)
         ];
 
@@ -127,9 +127,18 @@ pub fn request_access(timeout: Duration) -> bool {
     }
 }
 
+/// Kolik kalendářů store právě vidí. Levný liveness signál pro service:
+/// „měli jsme kalendáře a najednou 0" = mrtvý store, ne prázdný systém.
+pub(super) fn calendar_count(store: &EKEventStore) -> u32 {
+    let cals = unsafe { store.calendarsForEntityType(EKEntityType::Event) };
+    cals.len() as u32
+}
+
 /// Seznam kalendářů (id + název) pro nastavení.
-pub fn list_calendars() -> Vec<CalInfo> {
-    let store = unsafe { EKEventStore::new() };
+pub(super) fn list_calendars(store: &EKEventStore) -> Vec<CalInfo> {
+    // Popostrčit sync i tady — bez toho se účet přidaný za běhu neukáže,
+    // dokud si macOS sám nesynchronizuje (v0.1.4 to měl jen fetch).
+    unsafe { store.refreshSourcesIfNecessary() };
     let cals = unsafe { store.calendarsForEntityType(EKEntityType::Event) };
     cals.iter()
         .map(|c| {
@@ -148,20 +157,6 @@ pub fn list_calendars() -> Vec<CalInfo> {
             }
         })
         .collect()
-}
-
-/// Platí ještě tahle schůzka? Volá se těsně před přeletem — mezi
-/// pollem a tickem mohla být zrušena, přesunuta nebo smazána.
-/// Kontroluje se jen EventKit; události z ICS (id "ics:…") se ověřit
-/// nedají bez dalšího síťového dotazu, ty projdou.
-pub fn event_still_valid(event_id: &str, start: i64, calendar_ids: &[String]) -> bool {
-    if event_id.starts_with("ics:") {
-        return true;
-    }
-    // úzké okno kolem začátku stačí — hledáme přesně tuhle instanci
-    fetch_events(2.0, calendar_ids)
-        .iter()
-        .any(|e| e.id == event_id && e.start == start)
 }
 
 /// Odmítl jsem tuhle pozvánku? EKParticipantStatus::Declined = 3.
@@ -184,8 +179,13 @@ fn is_declined_by_me(event: &objc2_event_kit::EKEvent) -> bool {
 
 /// Události v okně ⟨teď, teď + hours⟩, volitelně filtrované na vybrané
 /// kalendáře. Opakované události EventKit rozbaluje sám.
-pub fn fetch_events(hours: f64, calendar_ids: &[String]) -> Vec<CalEvent> {
-    let store = unsafe { EKEventStore::new() };
+/// Prázdný výběr = všechny kalendáře KROMĚ narozenin a odebíraných —
+/// stejná sémantika, jakou od začátku slibuje UI (checkboxy).
+pub(super) fn fetch_events(
+    store: &EKEventStore,
+    hours: f64,
+    calendar_ids: &[String],
+) -> Vec<CalEvent> {
     // Popostrčit sync se serverem — jinak appka čeká, až si macOS
     // sám stáhne změny z Googlu (může trvat i desítky minut).
     unsafe { store.refreshSourcesIfNecessary() };
@@ -210,13 +210,17 @@ pub fn fetch_events(hours: f64, calendar_ids: &[String]) -> Vec<CalEvent> {
         // 3) pozvánky, které jsem odmítl (EKParticipantStatus::Declined = 3)
         .filter(|e| !is_declined_by_me(e))
         .filter(|e| {
-            calendar_ids.is_empty()
-                || unsafe { e.calendar() }
-                    .map(|c| {
-                        let id = unsafe { c.calendarIdentifier() }.to_string();
-                        calendar_ids.iter().any(|want| want == &id)
-                    })
-                    .unwrap_or(false)
+            let Some(c) = (unsafe { e.calendar() }) else {
+                return false;
+            };
+            if calendar_ids.is_empty() {
+                // default: bez narozenin (4) a odebíraných svátků (3)
+                let ctype: isize = unsafe { msg_send![&*c, type] };
+                ctype != 3 && ctype != 4
+            } else {
+                let id = unsafe { c.calendarIdentifier() }.to_string();
+                calendar_ids.iter().any(|want| want == &id)
+            }
         })
         .filter_map(|e| {
             let start_date: Option<Retained<NSDate>> = unsafe { msg_send![&*e, startDate] };

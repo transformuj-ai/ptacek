@@ -26,6 +26,19 @@ fn build_app() {
                     LogTarget::Folder(app::conf::app_root()),
                     LogTarget::Stdout,
                 ])
+                // Lokální čas s offsetem — UTC bez označení zóny nás při
+                // diagnostice incidentu 1. 8. stálo hodinu zmatku.
+                // (Vlastní format, NE timezone_strategy — ta by resetovala
+                // dispatch a zahodila .level() nastavené níž.)
+                .format(|out, message, record| {
+                    out.finish(format_args!(
+                        "[{}][{}][{}] {}",
+                        chrono::Local::now().format("%Y-%m-%d %H:%M:%S%z"),
+                        record.level(),
+                        record.target(),
+                        message
+                    ))
+                })
                 // strop a rotace — log nesmí růst donekonečna
                 .max_file_size(1_000_000)
                 .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepOne)
@@ -76,6 +89,10 @@ fn build_app() {
             // Žádné okno se nevytváří při startu (tauri.conf.json windows: []).
             // Overlay okno se bude vytvářet dynamicky ve window.rs (PR2).
             conf::if_app_config_does_not_exist_create_default(app, "settings.json");
+
+            // EventKit service: jediný store pro celý proces (incident 1021).
+            // Musí běžet dřív než scheduler, ten přes ni čte kalendář.
+            app::calendar::service::start(app.handle());
 
             // Srdce appky: plánovač přeletů z kalendáře.
             app::scheduler::start(app.handle());
@@ -150,19 +167,28 @@ fn build_app() {
                     let status = app::calendar::eventkit::authorization_status();
                     info!("EventKit status: {status}");
                     let granted = status == "authorized"
-                        || app::calendar::eventkit::request_access(
+                        || app::calendar::service::request_access(
                             std::time::Duration::from_secs(120),
                         );
                     if granted {
-                        let cals = app::calendar::eventkit::list_calendars();
-                        info!("EventKit: {} kalendářů", cals.len());
-                        for c in cals.iter().take(8) {
-                            info!("  kalendář: {}", c.title);
+                        let cals = app::calendar::service::list_calendars();
+                        match cals {
+                            Ok(cals) => {
+                                info!("EventKit: {} kalendářů", cals.len());
+                                for c in cals.iter().take(8) {
+                                    info!("  kalendář: {}", c.title);
+                                }
+                            }
+                            Err(e) => info!("EventKit: list selhal ({e})"),
                         }
-                        let evs = app::calendar::eventkit::fetch_events(168.0, &[]);
-                        info!("EventKit: {} událostí v příštích 7 dnech", evs.len());
-                        for e in evs.iter().take(5) {
-                            info!("  event: {} @ {}", e.title, e.start);
+                        match app::calendar::service::fetch_events(168.0, &[]) {
+                            Ok(evs) => {
+                                info!("EventKit: {} událostí v příštích 7 dnech", evs.len());
+                                for e in evs.iter().take(5) {
+                                    info!("  event: {} @ {}", e.title, e.start);
+                                }
+                            }
+                            Err(e) => info!("EventKit: fetch selhal ({e})"),
                         }
                     } else {
                         info!("EventKit: přístup neudělen ({status})");
@@ -202,6 +228,8 @@ fn build_app() {
             cmd::list_calendars,
             cmd::upcoming_count,
             cmd::calendars_changed,
+            cmd::calendar_health,
+            cmd::export_diagnostics,
             cmd::snooze_flyby,
             cmd::refresh_tray,
             cmd::open_mail_info,
@@ -228,7 +256,7 @@ fn build_app() {
 fn main() {
     // Panic hook: zaloguj panic (např. do log pluginu) místo tichého pádu
     // bez stopy. Panic samotný appku ukončí (release profil má panic="abort"),
-    // ale log s příčinou přežije v ~/Library/Logs.
+    // ale log s příčinou přežije v ~/Library/Application Support/Ptacek/.
     std::panic::set_hook(Box::new(|panic_info| {
         error!("Panic: {}", panic_info);
     }));

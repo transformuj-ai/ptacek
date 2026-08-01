@@ -605,6 +605,46 @@ section:last-child {
   padding: 3px 8px;
 }
 
+/* Health karta — stav kalendářové vrstvy, hned pod sekcí Přelet */
+.health-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.health-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  margin-top: 4px;
+}
+
+.health-dot-green {
+  background: #4ade80;
+}
+
+.health-dot-orange {
+  background: #f97316;
+}
+
+.health-dot-red {
+  background: #f87171;
+}
+
+.health-text {
+  color: #d4d4d8;
+  line-height: 1.55;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.health-text > div:first-child {
+  color: #e4e4e7;
+}
+
 /* Odinstalace — nenápadná sekce na konci, ne past na omylem kliknutí:
    první klik jen odkryje potvrzení, teprve druhý uklízí. */
 .uninstall {

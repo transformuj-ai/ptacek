@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
+import { listen } from "@tauri-apps/api/event";
 import { appWindow } from "@tauri-apps/api/window";
 import { getVersion } from "@tauri-apps/api/app";
 import { MASCOTS } from "../overlay/mascots/manifest";
@@ -28,11 +29,35 @@ interface CalInfo {
   kind: string; // "birthday" | "subscription" | "normal"
 }
 
+interface CalendarHealth {
+  status: string;
+  calendars: number;
+  lastSuccess: number | null;
+  lastError: string | null;
+  consecutiveFailures: number;
+  storeGeneration: number;
+}
+
+// Nahrazuje dřívější trojici calStatus+calendars+calMsg — jeden zdroj
+// pravdy, ať UI nikdy netvrdí „prázdný kalendář" při výpadku služby
+// (bug v0.1.4).
+type CalState =
+  | { kind: "loading" }
+  | { kind: "ready"; cals: CalInfo[] }
+  | { kind: "empty" } // authorized + potvrzeně 0 kalendářů
+  | { kind: "notDetermined" }
+  | { kind: "denied" } // denied i restricted
+  | { kind: "writeOnly" }
+  | { kind: "unavailable"; reason: string };
+
 function SettingsApp() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [loaded, setLoaded] = useState(false);
-  const [calStatus, setCalStatus] = useState<string>("loading");
-  const [calendars, setCalendars] = useState<CalInfo[]>([]);
+  const [calState, setCalState] = useState<CalState>({ kind: "loading" });
+  const [health, setHealth] = useState<CalendarHealth | null>(null);
+  const [upcoming, setUpcoming] = useState<number | null>(null);
+  const [missingSelected, setMissingSelected] = useState(0);
+  const [diagCopied, setDiagCopied] = useState(false);
   const [icsInput, setIcsInput] = useState("");
   const [icsBusy, setIcsBusy] = useState(false);
   const [icsMsg, setIcsMsg] = useState("");
@@ -62,14 +87,53 @@ function SettingsApp() {
   const t = getStrings(lang);
 
   async function loadCalendars() {
+    // Když už máme data zobrazená (ready/empty), nech je viditelná a
+    // jen refreshni na pozadí — žádné blikání při návratu z fokusu.
+    setCalState((prev) =>
+      prev.kind === "ready" || prev.kind === "empty" ? prev : { kind: "loading" }
+    );
+    let status: string;
     try {
-      const status = await invoke<string>("calendar_status");
-      setCalStatus(status);
-      if (status === "authorized") {
-        setCalendars(await invoke<CalInfo[]>("list_calendars"));
+      status = await invoke<string>("calendar_status");
+    } catch (e) {
+      setCalState({ kind: "unavailable", reason: String(e) });
+      return;
+    }
+    if (status === "authorized") {
+      try {
+        const cals = await invoke<CalInfo[]>("list_calendars");
+        setCalState(cals.length > 0 ? { kind: "ready", cals } : { kind: "empty" });
+      } catch (e) {
+        // NIKDY empty při chybě — to byl bug v0.1.4 (tvrdilo „žádné
+        // kalendáře v systému" při výpadku služby).
+        setCalState({ kind: "unavailable", reason: String(e) });
       }
+      return;
+    }
+    if (status === "notDetermined") {
+      setCalState({ kind: "notDetermined" });
+    } else if (status === "denied" || status === "restricted") {
+      setCalState({ kind: "denied" });
+    } else if (status === "writeOnly") {
+      setCalState({ kind: "writeOnly" });
+    } else {
+      setCalState({ kind: "unavailable", reason: status });
+    }
+  }
+
+  function retryCalendars() {
+    loadCalendars();
+    invoke("calendars_changed").catch(() => undefined);
+  }
+
+  async function copyDiagnostics() {
+    try {
+      const json = await invoke<string>("export_diagnostics");
+      await navigator.clipboard.writeText(json);
+      setDiagCopied(true);
+      setTimeout(() => setDiagCopied(false), 3000);
     } catch {
-      setCalStatus("error");
+      // schránka nebo příkaz nejsou k dispozici — tiché selhání
     }
   }
 
@@ -80,6 +144,30 @@ function SettingsApp() {
       .catch(() => undefined)
       .finally(() => setLoaded(true));
     loadCalendars();
+    invoke<CalendarHealth>("calendar_health").then(setHealth).catch(() => undefined);
+  }, []);
+
+  // Rust emituje po každé operaci s kalendářem — health karta a hláška
+  // o dočasně neviditelných vybraných kalendářích se tak nemusí ptát.
+  useEffect(() => {
+    let unlistenHealth: (() => void) | undefined;
+    let unlistenMissing: (() => void) | undefined;
+    listen<CalendarHealth>("ptacek://calendar-health", (e) => setHealth(e.payload))
+      .then((fn) => {
+        unlistenHealth = fn;
+      })
+      .catch(() => undefined);
+    listen<number>("ptacek://calendar-selection-unavailable", (e) =>
+      setMissingSelected(e.payload)
+    )
+      .then((fn) => {
+        unlistenMissing = fn;
+      })
+      .catch(() => undefined);
+    return () => {
+      unlistenHealth?.();
+      unlistenMissing?.();
+    };
   }, []);
 
   // Uživatel se často vrací z Nastavení systému (deep-link u zamítnutého
@@ -132,14 +220,28 @@ function SettingsApp() {
     setCalMsg("");
     try {
       const granted = await invoke<boolean>("request_calendar_access");
-      if (granted) {
-        const cals = await invoke<CalInfo[]>("list_calendars");
-        const events = await invoke<number>("upcoming_count");
-        setCalendars(cals);
-        setCalStatus("authorized");
-        setCalMsg(events === 0 ? t.calOkNone : t.calOk(cals.length, events));
-      } else {
+      if (!granted) {
         setCalMsg(t.calRefused);
+        return;
+      }
+      let cals: CalInfo[] | null = null;
+      try {
+        cals = await invoke<CalInfo[]>("list_calendars");
+        setCalState(cals.length > 0 ? { kind: "ready", cals } : { kind: "empty" });
+      } catch (e) {
+        setCalState({ kind: "unavailable", reason: String(e) });
+      }
+      try {
+        const events = await invoke<number>("upcoming_count");
+        setUpcoming(events);
+        // nikdy zároveň calOkNone a calEmpty — jen když víme, že jsou
+        // vidět nějaké kalendáře, má hláška o schůzkách smysl
+        if (cals && cals.length > 0) {
+          setCalMsg(events === 0 ? t.calOkNone : t.calOk(cals.length, events));
+        }
+      } catch {
+        setUpcoming(null);
+        setCalMsg(t.calUnavailable);
       }
     } catch {
       setCalMsg(t.calRefused);
@@ -149,18 +251,20 @@ function SettingsApp() {
     }
   }
 
+  const cals = calState.kind === "ready" ? calState.cals : [];
+
   // Prázdný seznam = „vše kromě narozenin a odebíraných svátků" —
   // celodenní položky z nich by jinak spouštěly přelet každý den.
   function isCalOn(id: string) {
     if (settings.calendarIds.length > 0) {
       return settings.calendarIds.includes(id);
     }
-    const cal = calendars.find((c) => c.id === id);
+    const cal = cals.find((c) => c.id === id);
     return cal ? cal.kind === "normal" : true;
   }
 
   function toggleCal(id: string, on: boolean) {
-    const defaultOn = calendars.filter((c) => c.kind === "normal").map((c) => c.id);
+    const defaultOn = cals.filter((c) => c.kind === "normal").map((c) => c.id);
     const current =
       settings.calendarIds.length === 0 ? defaultOn : settings.calendarIds;
     let next = on ? [...current, id] : current.filter((x) => x !== id);
@@ -404,6 +508,68 @@ function SettingsApp() {
         </div>
       </section>
 
+      <section className="health">
+        <div className="s-label">{t.healthTitle}</div>
+        <div className="health-row">
+          <span
+            className={
+              calState.kind === "ready" || calState.kind === "empty"
+                ? "health-dot health-dot-green"
+                : calState.kind === "denied"
+                ? "health-dot health-dot-red"
+                : "health-dot health-dot-orange"
+            }
+            aria-hidden="true"
+          />
+          <div className="health-text" aria-live="polite">
+            {calState.kind === "ready" && (
+              <>
+                <div>{t.healthOk(calState.cals.length)}</div>
+                {health?.lastSuccess && (
+                  <div className="cal-hint">
+                    {t.calLastSync(
+                      new Date(health.lastSuccess * 1000).toLocaleTimeString(
+                        lang === "en" ? "en-US" : "cs-CZ",
+                        { hour: "2-digit", minute: "2-digit" }
+                      )
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+            {calState.kind === "empty" && <div>{t.calEmpty}</div>}
+            {calState.kind === "loading" && <div>{t.calLoading}</div>}
+            {calState.kind === "unavailable" && (
+              <>
+                <div>{t.calUnavailable}</div>
+                <div className="cal-hint">{t.calDegradedKeepPlan}</div>
+                <button className="s-link" onClick={retryCalendars}>
+                  {t.calRetry}
+                </button>
+              </>
+            )}
+            {calState.kind === "notDetermined" && (
+              <>
+                <div>{t.calNoAccess}</div>
+                <button className="s-link" onClick={grantCalendar} disabled={calBusy}>
+                  {calBusy ? t.calAsking : t.calGrant}
+                </button>
+              </>
+            )}
+            {(calState.kind === "denied" || calState.kind === "writeOnly") && (
+              <div>{t.healthSeeSection}</div>
+            )}
+          </div>
+        </div>
+        {missingSelected > 0 && (
+          <div className="cal-hint">{t.calSelectionUnavailable(missingSelected)}</div>
+        )}
+        <button className="s-link" onClick={copyDiagnostics}>
+          {t.diagCopy}
+        </button>
+        {diagCopied && <div className="cal-hint">{t.diagCopied}</div>}
+      </section>
+
       <section>
         <div className="s-label">{t.secBehavior}</div>
         <div className="s-row">
@@ -435,30 +601,13 @@ function SettingsApp() {
       </section>
 
       <section>
-        <div className="s-label">{t.secMascots}</div>
-        <div className="cal-hint">{t.mascotsHint}</div>
-        <div className="mascot-list">
-          {MASCOTS.map((m) => (
-            <details key={m.id} className="mascot-item">
-              <summary>{lang === "en" ? m.nameEn : m.nazev}</summary>
-              <div className="mascot-body">
-                <p>{lang === "en" ? m.descEn : m.descCs}</p>
-                <button className="s-link" onClick={() => demo(m.id)}>
-                  ▶ {t.play}
-                </button>
-              </div>
-            </details>
-          ))}
-        </div>
-      </section>
-
-      <section>
         <div className="s-label">{t.secCalendars}</div>
-        {calStatus === "authorized" && calendars.length > 0 && (
+        {calState.kind === "loading" && <div className="cal-hint">{t.calLoading}</div>}
+        {calState.kind === "ready" && (
           <>
             <div className="cal-hint">{t.calHint}</div>
             <div className="cal-list">
-              {calendars.map((c) => (
+              {calState.cals.map((c) => (
                 <label key={c.id} className="cal-row">
                   <input
                     type="checkbox"
@@ -478,10 +627,17 @@ function SettingsApp() {
             </div>
           </>
         )}
-        {calStatus === "authorized" && calendars.length === 0 && (
-          <div className="s-info">{t.calEmpty}</div>
+        {calState.kind === "empty" && <div className="s-info">{t.calEmpty}</div>}
+        {calState.kind === "unavailable" && (
+          <div className="s-info">
+            <div style={{ marginBottom: 10 }}>{t.calUnavailable}</div>
+            <div className="cal-hint">{t.calDegradedKeepPlan}</div>
+            <button className="s-link" onClick={retryCalendars}>
+              {t.calRetry}
+            </button>
+          </div>
         )}
-        {(calStatus === "notDetermined" || calStatus === "error") && (
+        {calState.kind === "notDetermined" && (
           <div className="s-info">
             <div style={{ marginBottom: 10 }}>{t.calNoAccess}</div>
             <button className="s-link" onClick={grantCalendar} disabled={calBusy}>
@@ -492,7 +648,7 @@ function SettingsApp() {
         <div aria-live="polite">
           {calMsg && <div className="s-perk">{calMsg}</div>}
         </div>
-        {(calStatus === "denied" || calStatus === "restricted") && (
+        {calState.kind === "denied" && (
           <div className="s-info">
             <div style={{ marginBottom: 10 }}>{t.calDenied}</div>
             <button
@@ -505,7 +661,7 @@ function SettingsApp() {
             </button>
           </div>
         )}
-        {calStatus === "writeOnly" && (
+        {calState.kind === "writeOnly" && (
           <div className="s-info">
             <div style={{ marginBottom: 10 }}>{t.calWriteOnly}</div>
             <button
@@ -567,6 +723,24 @@ function SettingsApp() {
             </button>
           </div>
         )}
+      </section>
+
+      <section>
+        <div className="s-label">{t.secMascots}</div>
+        <div className="cal-hint">{t.mascotsHint}</div>
+        <div className="mascot-list">
+          {MASCOTS.map((m) => (
+            <details key={m.id} className="mascot-item">
+              <summary>{lang === "en" ? m.nameEn : m.nazev}</summary>
+              <div className="mascot-body">
+                <p>{lang === "en" ? m.descEn : m.descCs}</p>
+                <button className="s-link" onClick={() => demo(m.id)}>
+                  ▶ {t.play}
+                </button>
+              </div>
+            </details>
+          ))}
+        </div>
       </section>
 
       <section>

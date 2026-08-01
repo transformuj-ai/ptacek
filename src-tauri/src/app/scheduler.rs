@@ -14,14 +14,31 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
 use super::calendar::eventkit;
+use super::calendar::service::{self, EventValidity};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 
 /// Nastaví UI po změně kalendářů/oprávnění — scheduler pak na nejbližší
 /// tick (do 15 s) načte kalendář znovu místo čekání na 5minutový poll.
 pub static FORCE_POLL: AtomicBool = AtomicBool::new(false);
 
+/// Probuzení smyčky mimo 15s tick (EKEventStoreChangedNotification).
+/// AtomicBool je zároveň přirozený debounce: burst notifikací = jeden poll.
+static WAKE: OnceLock<tokio::sync::Notify> = OnceLock::new();
+
+fn wake() -> &'static tokio::sync::Notify {
+    WAKE.get_or_init(tokio::sync::Notify::new)
+}
+
 pub fn request_poll() {
     FORCE_POLL.store(true, Ordering::Relaxed);
+}
+
+/// Jako request_poll, ale probudí smyčku hned — reakce na změnu
+/// kalendáře do pár vteřin místo čekání na tick.
+pub fn request_poll_now() {
+    request_poll();
+    wake().notify_one();
 }
 use super::conf::AppConfig;
 use super::window;
@@ -41,12 +58,11 @@ struct FlybyJob {
     source: Source,
 }
 
-/// Přestaví frontu po pollu. Každý zdroj si spravuje jen svoje joby:
-/// - EventKit je in-process a bez sítě → jeho výsledek je vždy
-///   autoritativní (i prázdný: bez oprávnění se prostě nelétá);
-/// - ICS jde přes síť → při chybě fetche se předchozí ICS joby ponechají
-///   (výpadek wifi nesmí zahodit dnešní schůzky), při úspěchu se nahradí
-///   VŽDY, i prázdnem (smazaná/zrušená událost musí z fronty pryč).
+/// Přestaví frontu po pollu. Každý zdroj si spravuje jen svoje joby a
+/// pro OBA platí stejný princip (poučení z incidentu 1021):
+/// - úspěch nahrazuje VŽDY, i prázdnem (smazaná událost musí z fronty),
+/// - chyba čtení NIKDY nemaže — předchozí joby zdroje se ponechají.
+///   Výpadek služby nesmí zahodit dnešní schůzky.
 ///
 /// Dedupe: v rámci zdroje podle klíče (stable_id@occurrence — dvě různé
 /// schůzky se stejným názvem a časem přežijí), mezi zdroji heuristika
@@ -54,13 +70,26 @@ struct FlybyJob {
 /// připojený oběma cestami, nedostane dva přelety na jednu schůzku.
 fn rebuild_queue(
     prev: &BTreeMap<i64, Vec<FlybyJob>>,
-    ekit: &[eventkit::CalEvent],
+    ekit: Result<Vec<eventkit::CalEvent>, String>,
     ics: Option<Result<Vec<eventkit::CalEvent>, String>>,
     lead: i64,
 ) -> BTreeMap<i64, Vec<FlybyJob>> {
     let mut queue: BTreeMap<i64, Vec<FlybyJob>> = BTreeMap::new();
     let mut keys: HashSet<String> = HashSet::new();
     let mut cross: HashSet<(i64, String)> = HashSet::new();
+
+    let carry_over = |queue: &mut BTreeMap<i64, Vec<FlybyJob>>,
+                      keys: &mut HashSet<String>,
+                      source: Source| {
+        for job in prev.values().flatten().filter(|j| j.source == source) {
+            if keys.insert(job.key.clone()) {
+                queue
+                    .entry(job.start - lead)
+                    .or_default()
+                    .push(job.clone());
+            }
+        }
+    };
 
     let add = |queue: &mut BTreeMap<i64, Vec<FlybyJob>>,
                    keys: &mut HashSet<String>,
@@ -90,8 +119,15 @@ fn rebuild_queue(
         });
     };
 
-    for e in ekit {
-        add(&mut queue, &mut keys, &mut cross, e, Source::Ekit, false);
+    match &ekit {
+        Ok(events) => {
+            for e in events {
+                add(&mut queue, &mut keys, &mut cross, e, Source::Ekit, false);
+            }
+        }
+        // chyba čtení → přenést předchozí EventKit joby beze změny;
+        // degraded služba nesmí zahodit naplánované schůzky
+        Err(_) => carry_over(&mut queue, &mut keys, Source::Ekit),
     }
     match ics {
         // ICS vypnuté → žádné ICS joby
@@ -102,16 +138,7 @@ fn rebuild_queue(
             }
         }
         // chyba fetche → přenést předchozí ICS joby beze změny
-        Some(Err(_)) => {
-            for job in prev.values().flatten().filter(|j| j.source == Source::Ics) {
-                if keys.insert(job.key.clone()) {
-                    queue
-                        .entry(job.start - lead)
-                        .or_default()
-                        .push(job.clone());
-                }
-            }
-        }
+        Some(Err(_)) => carry_over(&mut queue, &mut keys, Source::Ics),
     }
     queue
 }
@@ -120,6 +147,10 @@ pub fn start(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut queue: BTreeMap<i64, Vec<FlybyJob>> = BTreeMap::new();
         let mut fired: HashSet<String> = HashSet::new();
+        // finální kontrola vrátila Unknown → počítáme krátké retry,
+        // po kterých schůzka radši letí z posledního potvrzeného snapshotu
+        let mut unknown_retries: std::collections::HashMap<String, u8> =
+            std::collections::HashMap::new();
         let mut last_poll: i64 = 0;
 
         loop {
@@ -135,7 +166,11 @@ pub fn start(app: AppHandle) {
             let forced = FORCE_POLL.swap(false, Ordering::Relaxed);
             if forced || now - last_poll >= 300 {
                 last_poll = now;
-                let ekit = eventkit::fetch_events(24.0, &cfg.calendar_ids);
+                let ekit = service::fetch_events(24.0, &cfg.calendar_ids);
+                let ekit_desc = match &ekit {
+                    Ok(events) => format!("ok událostí={}", events.len()),
+                    Err(code) => format!("CHYBA kód={code}, nechávám předchozí joby"),
+                };
                 // druhý zdroj: tajná iCal URL (pokud je nastavená)
                 let ics = if cfg.ics_url_set {
                     let r = super::calendar::ics::fetch_events(24.0).await;
@@ -149,7 +184,7 @@ pub fn start(app: AppHandle) {
                 // clamp: ručně upravený JSON s 99999 by jinak vystřelil
                 // všechny dnešní schůzky naráz
                 let lead = i64::from(cfg.minutes_before.min(60)) * 60;
-                queue = rebuild_queue(&queue, &ekit, ics, lead);
+                queue = rebuild_queue(&queue, ekit, ics, lead);
                 // prune: klíče starší 24 h už nikdy nevystřelí
                 fired.retain(|k| {
                     k.rsplit('@')
@@ -157,8 +192,11 @@ pub fn start(app: AppHandle) {
                         .and_then(|ts| ts.parse::<i64>().ok())
                         .is_some_and(|ts| now - ts < 24 * 3600)
                 });
+                unknown_retries.retain(|k, _| !fired.contains(k));
+                // strukturovaně a bez osobních dat: zdroje, počty, fronta
                 info!(
-                    "Scheduler poll: {} časů ve frontě, {} odbavených",
+                    "Scheduler poll: ekit {} · fronta={} odbaveno={}",
+                    ekit_desc,
                     queue.len(),
                     fired.len()
                 );
@@ -181,13 +219,32 @@ pub fn start(app: AppHandle) {
                         fired.insert(job.key);
                         continue;
                     }
-                    // osobní data (název schůzky) do logu nepatří — jen délka a čas
                     // Poslední kontrola: schůzka mohla být za posledních
                     // pár minut zrušena, smazána nebo přesunuta jinam.
-                    if !eventkit::event_still_valid(&job.event_id, job.start, &cfg.calendar_ids) {
-                        info!("Scheduler: schůzka už neplatí (zrušena/přesunuta), přelet ruším");
-                        fired.insert(job.key);
-                        continue;
+                    // Unknown ≠ zrušena: výpadek čtení nesmí schůzku
+                    // potichu zahodit — po 2 pokusech letí z posledního
+                    // potvrzeného snapshotu (fronta se staví jen z Ok pollů).
+                    match service::event_still_valid(&job.event_id, job.start, &cfg.calendar_ids) {
+                        EventValidity::Gone => {
+                            info!("Scheduler: schůzka už neplatí (zrušena/přesunuta), přelet ruším");
+                            fired.insert(job.key);
+                            continue;
+                        }
+                        EventValidity::Unknown => {
+                            let tries = unknown_retries.entry(job.key.clone()).or_insert(0);
+                            *tries += 1;
+                            if *tries <= 2 {
+                                info!(
+                                    "Scheduler: ověření schůzky selhalo (pokus {}), zkusím za tick",
+                                    tries
+                                );
+                                break; // neoznačovat fired, příští tick znovu
+                            }
+                            log::warn!(
+                                "Scheduler: ověření nedostupné, letím z posledního potvrzeného snapshotu"
+                            );
+                        }
+                        EventValidity::Valid => {}
                     }
                     info!("Scheduler: přelet (titulek {} zn., start {})", job.title.chars().count(), job.start);
                     // fired až po úspěšném otevření okna — když se okno
@@ -199,7 +256,11 @@ pub fn start(app: AppHandle) {
                 }
             }
 
-            tokio::time::sleep(Duration::from_secs(15)).await;
+            // tick à 15 s, ale notifikace změny kalendáře probudí hned
+            tokio::select! {
+                _ = tokio::time::sleep(Duration::from_secs(15)) => {}
+                _ = wake().notified() => {}
+            }
         }
     });
 }
@@ -271,13 +332,13 @@ mod queue_tests {
     fn vypadek_ics_necha_predchozi_ics_joby() {
         let prev = rebuild_queue(
             &BTreeMap::new(),
-            &[],
+            Ok(vec![]),
             Some(Ok(vec![ev("ics:a", 1000, "Call")])),
             60,
         );
         assert_eq!(jobs(&prev).len(), 1);
         // další poll: ICS spadne → job přežije
-        let q = rebuild_queue(&prev, &[], Some(Err("timeout".into())), 60);
+        let q = rebuild_queue(&prev, Ok(vec![]), Some(Err("timeout".into())), 60);
         assert_eq!(jobs(&q).len(), 1, "výpadek sítě nesmí zahodit schůzku");
     }
 
@@ -285,19 +346,60 @@ mod queue_tests {
     fn uspesne_prazdne_ics_frontu_vycisti() {
         let prev = rebuild_queue(
             &BTreeMap::new(),
-            &[],
+            Ok(vec![]),
             Some(Ok(vec![ev("ics:a", 1000, "Zrušený call")])),
             60,
         );
-        let q = rebuild_queue(&prev, &[], Some(Ok(Vec::new())), 60);
+        let q = rebuild_queue(&prev, Ok(vec![]), Some(Ok(Vec::new())), 60);
         assert!(jobs(&q).is_empty(), "smazaná ICS událost musí z fronty pryč");
+    }
+
+    #[test]
+    fn chyba_eventkitu_zachova_predchozi_eventkit_joby() {
+        let prev = rebuild_queue(
+            &BTreeMap::new(),
+            Ok(vec![ev("e1", 1000, "Porada"), ev("e2", 2000, "Standup")]),
+            None,
+            60,
+        );
+        assert_eq!(jobs(&prev).len(), 2);
+        // výpadek služby (1021 apod.) → schůzky přežijí
+        let q = rebuild_queue(&prev, Err("service-unavailable".into()), None, 60);
+        assert_eq!(
+            jobs(&q).len(),
+            2,
+            "výpadek EventKitu nesmí zahodit naplánované schůzky"
+        );
+    }
+
+    #[test]
+    fn uspesne_prazdny_eventkit_frontu_vycisti() {
+        let prev = rebuild_queue(&BTreeMap::new(), Ok(vec![ev("e1", 1000, "A")]), None, 60);
+        let q = rebuild_queue(&prev, Ok(vec![]), None, 60);
+        assert!(
+            jobs(&q).is_empty(),
+            "potvrzené prázdno = smazaná schůzka musí z fronty"
+        );
+    }
+
+    #[test]
+    fn ics_funguje_i_pri_degradovanem_eventkitu() {
+        let q = rebuild_queue(
+            &BTreeMap::new(),
+            Err("service-unavailable".into()),
+            Some(Ok(vec![ev("ics:a", 1000, "Call")])),
+            60,
+        );
+        let j = jobs(&q);
+        assert_eq!(j.len(), 1, "ICS zdroj jede nezávisle na EventKitu");
+        assert_eq!(j[0].source, Source::Ics);
     }
 
     #[test]
     fn dve_schuzky_stejny_nazev_i_cas_prezijou_v_ramci_zdroje() {
         let q = rebuild_queue(
             &BTreeMap::new(),
-            &[ev("e1", 1000, "Standup"), ev("e2", 1000, "Standup")],
+            Ok(vec![ev("e1", 1000, "Standup"), ev("e2", 1000, "Standup")]),
             None,
             60,
         );
@@ -308,7 +410,7 @@ mod queue_tests {
     fn stejna_schuzka_z_obou_zdroju_leti_jednou() {
         let q = rebuild_queue(
             &BTreeMap::new(),
-            &[ev("ekit-1", 1000, "Porada")],
+            Ok(vec![ev("ekit-1", 1000, "Porada")]),
             Some(Ok(vec![ev("ics:x", 1000, "Porada")])),
             60,
         );
@@ -318,15 +420,8 @@ mod queue_tests {
     }
 
     #[test]
-    fn prazdny_eventkit_je_autoritativni() {
-        let prev = rebuild_queue(&BTreeMap::new(), &[ev("e1", 1000, "A")], None, 60);
-        let q = rebuild_queue(&prev, &[], None, 60);
-        assert!(jobs(&q).is_empty(), "odepřené oprávnění = nelétá se, žádný duch");
-    }
-
-    #[test]
     fn fire_at_respektuje_lead() {
-        let q = rebuild_queue(&BTreeMap::new(), &[ev("e1", 1000, "A")], None, 300);
+        let q = rebuild_queue(&BTreeMap::new(), Ok(vec![ev("e1", 1000, "A")]), None, 300);
         assert_eq!(*q.keys().next().unwrap(), 700);
     }
 
@@ -334,10 +429,21 @@ mod queue_tests {
     fn duplicitni_zaznam_teze_instance_se_slouci() {
         let q = rebuild_queue(
             &BTreeMap::new(),
-            &[ev("e1", 1000, "A"), ev("e1", 1000, "A")],
+            Ok(vec![ev("e1", 1000, "A"), ev("e1", 1000, "A")]),
             None,
             60,
         );
         assert_eq!(jobs(&q).len(), 1);
+    }
+
+    #[test]
+    fn request_poll_je_idempotentni_debounce() {
+        use std::sync::atomic::Ordering;
+        // burst notifikací → jediný spotřebovaný poll
+        request_poll();
+        request_poll();
+        request_poll();
+        assert!(FORCE_POLL.swap(false, Ordering::Relaxed));
+        assert!(!FORCE_POLL.swap(false, Ordering::Relaxed), "druhý swap už nic nemá");
     }
 }

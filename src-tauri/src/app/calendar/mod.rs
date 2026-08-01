@@ -1,5 +1,6 @@
 pub mod eventkit;
 pub mod ics;
+pub mod service;
 
 use unicode_normalization_shim::nfc_shim;
 

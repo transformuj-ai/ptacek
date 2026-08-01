@@ -109,6 +109,19 @@ const STRINGS = {
       "Ptáček zatím smí do kalendáře jen zapisovat, ale ne číst — bez čtení neví, kdy máš schůzku. Přepni na plný přístup v Nastavení systému.",
     calEmpty:
       "Přístup funguje, ale v systému nejsou žádné kalendáře. Přidej účet v Nastavení systému → Internetové účty.",
+    calLoading: "Načítám kalendáře…",
+    calUnavailable:
+      "Kalendáře se teď nepodařilo načíst. Ptáček zachoval poslední plán a zkouší to dál.",
+    calDegradedKeepPlan: "Naplánovaná upozornění zůstávají v platnosti.",
+    calRetry: "Zkusit znovu",
+    calLastSync: (t: string) => `Naposledy synchronizováno ${t}`,
+    calSelectionUnavailable: (n: number) =>
+      `${n} z vybraných kalendářů teď není vidět, nechávám je ve výběru.`,
+    healthTitle: "Kalendář",
+    healthOk: (n: number) => `Připojeno, kalendářů: ${n}.`,
+    healthSeeSection: "Detail najdeš níž v sekci Kalendáře.",
+    diagCopy: "Zkopírovat technické informace",
+    diagCopied: "Zkopírováno, přilož je k hlášení na GitHubu.",
     autostartFail:
       "Nastavení spouštění po přihlášení se nepovedlo uložit. Zkus to prosím znovu.",
     demoFail: "Ukázkový přelet se nepovedlo spustit. Zkus to prosím znovu.",
@@ -267,6 +280,19 @@ const STRINGS = {
       "Ptáček can currently only write to your calendar, not read it — without reading it cannot know when your meetings are. Switch to full access in System Settings.",
     calEmpty:
       "Access works, but there are no calendars on this system. Add an account in System Settings → Internet Accounts.",
+    calLoading: "Loading calendars…",
+    calUnavailable:
+      "Couldn't read your calendars right now. Ptáček kept the last plan and keeps retrying.",
+    calDegradedKeepPlan: "Scheduled reminders stay in place.",
+    calRetry: "Try again",
+    calLastSync: (t: string) => `Last synced ${t}`,
+    calSelectionUnavailable: (n: number) =>
+      `${n} of your selected calendars can't be seen right now, keeping them selected.`,
+    healthTitle: "Calendar",
+    healthOk: (n: number) => `Connected, ${n} calendars.`,
+    healthSeeSection: "See the Calendars section below.",
+    diagCopy: "Copy technical info",
+    diagCopied: "Copied, attach it to a GitHub issue.",
     autostartFail:
       "Saving the launch-at-login setting failed. Please try again.",
     demoFail: "The demo flyby failed to start. Please try again.",

@@ -43,5 +43,16 @@ jobs:
         with:
           workspaces: src-tauri
       - run: cargo test --manifest-path src-tauri/Cargo.toml
-      # unexpected_cfgs pochází z makra sel_impl! v crate objc, ne z našeho kódu
-      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings -A unexpected_cfgs
+      # Gate je čistý bez výjimek: cfg(cargo-clippy) z makra sel_impl!
+      # (crate objc) řeší cílený allow ve window.rs, ne -A tady.
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      # Známé zranitelnosti v Rust stromu. Advisories bez dopadu na macOS
+      # runtime patří do audit.toml s komentářem, ne do ignorování celého auditu.
+      - name: cargo audit
+        run: |
+          cargo install cargo-audit --locked
+          cargo audit --file src-tauri/Cargo.lock || {
+            echo "::warning::cargo audit našel advisories — posoudit před releasem (viz log)"
+            true
+          }

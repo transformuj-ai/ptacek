@@ -1,6 +1,6 @@
 [package]
 name = "ptacek"
-version = "0.1.4"
+version = "0.1.5"
 description = "Transformuj Ptáček — macOS overlay notifikace schůzek"
 authors = ["Transformuj.ai"]
 license = "MIT"
@@ -25,7 +25,7 @@ tauri-plugin-autostart = { git = "https://github.com/tauri-apps/plugins-workspac
 tauri-plugin-store = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-log = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
-tokio = { version = "1", features = ["time"] }
+tokio = { version = "1", features = ["time", "sync", "macros"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip", "stream"] }
 ical = "0.11"

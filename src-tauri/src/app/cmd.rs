@@ -118,33 +118,63 @@ pub fn calendar_status() -> String {
 /// blokující část běží mimo main thread (async command = vlastní vlákno).
 #[tauri::command(async)]
 pub fn request_calendar_access() -> bool {
-    let granted = super::calendar::eventkit::request_access(std::time::Duration::from_secs(120));
+    let granted =
+        super::calendar::service::request_access(std::time::Duration::from_secs(120));
     if granted {
         // ať se schůzky načtou hned, ne až za 5 minut
-        super::scheduler::request_poll();
+        super::scheduler::request_poll_now();
     }
     granted
 }
 
 /// Kolik schůzek appka právě teď vidí (příštích 24 h, dle vybraných
-/// kalendářů) — zpětná vazba pro nastavení.
+/// kalendářů) — zpětná vazba pro nastavení. Chyba čtení je chyba,
+/// ne nula schůzek.
 #[tauri::command(async)]
-pub fn upcoming_count(app: tauri::AppHandle) -> usize {
-    let _ = app;
+pub fn upcoming_count() -> Result<usize, String> {
     let cfg = super::conf::AppConfig::new();
-    super::calendar::eventkit::fetch_events(24.0, &cfg.calendar_ids).len()
+    super::calendar::service::fetch_events(24.0, &cfg.calendar_ids).map(|v| v.len())
 }
 
 /// Uživatel změnil výběr kalendářů → přeplánovat hned.
 #[tauri::command]
 pub fn calendars_changed() {
-    super::scheduler::request_poll();
+    super::scheduler::request_poll_now();
 }
 
-/// Seznam kalendářů pro checkboxy v nastavení.
+/// Seznam kalendářů pro checkboxy v nastavení. Err = služba nedostupná
+/// nebo bez oprávnění — UI nesmí ukázat „žádné kalendáře".
 #[tauri::command(async)]
-pub fn list_calendars() -> Vec<super::calendar::eventkit::CalInfo> {
-    super::calendar::eventkit::list_calendars()
+pub fn list_calendars() -> Result<Vec<super::calendar::eventkit::CalInfo>, String> {
+    super::calendar::service::list_calendars()
+}
+
+/// Pravdivý stav kalendářové vrstvy pro health kartu v nastavení.
+#[tauri::command(async)]
+pub fn calendar_health() -> super::calendar::service::CalendarHealth {
+    super::calendar::service::health()
+}
+
+/// Diagnostika pro „Zkopírovat technické informace": POUZE typovaná
+/// bezpečná data. Žádné surové log řádky, názvy schůzek, kalendářů
+/// ani ICS URL (privacy pravidlo z auditu 2. 8. 2026).
+#[tauri::command(async)]
+pub fn export_diagnostics() -> Result<String, String> {
+    let health = super::calendar::service::health();
+    let cfg = super::conf::AppConfig::new();
+    let diag = serde_json::json!({
+        "app": env!("CARGO_PKG_VERSION"),
+        "generatedAt": chrono::Local::now().to_rfc3339(),
+        "health": health,
+        "config": {
+            "minutesBefore": cfg.minutes_before,
+            "calendarsSelected": cfg.calendar_ids.len(),
+            "icsConfigured": cfg.ics_url_set,
+            "language": cfg.language,
+            "launchAtLogin": cfg.launch_at_login,
+        },
+    });
+    serde_json::to_string_pretty(&diag).map_err(|e| e.to_string())
 }
 
 /// Otevře web Transformuj — pevná URL.
