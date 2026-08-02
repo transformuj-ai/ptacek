@@ -166,7 +166,16 @@ pub fn start(app: AppHandle) {
             let forced = FORCE_POLL.swap(false, Ordering::Relaxed);
             if forced || now - last_poll >= 300 {
                 last_poll = now;
-                let ekit = service::fetch_events(24.0, &cfg.calendar_ids);
+                // Vědomé vypnutí zdroje uživatelem ("Odpojit kalendář" v
+                // Nastavení) — appka přestane číst EventKit, i když
+                // systémové oprávnění zůstává. Ok(vec![]) nechá
+                // rebuild_queue vyčistit jen EventKit joby, ICS jede dál.
+                let ekit: Result<Vec<eventkit::CalEvent>, String> = if cfg.ekit_enabled {
+                    service::fetch_events(24.0, &cfg.calendar_ids)
+                } else {
+                    info!("Scheduler poll: zdroj=ekit vypnuto");
+                    Ok(Vec::new())
+                };
                 let ekit_desc = match &ekit {
                     Ok(events) => format!("ok událostí={}", events.len()),
                     Err(code) => format!("CHYBA kód={code}, nechávám předchozí joby"),
@@ -434,6 +443,24 @@ mod queue_tests {
             60,
         );
         assert_eq!(jobs(&q).len(), 1);
+    }
+
+    #[test]
+    fn vypnuty_ekit_vycisti_jen_ekit_joby_ics_zustava() {
+        // stav před vypnutím: oba zdroje mají svoje joby
+        let prev = rebuild_queue(
+            &BTreeMap::new(),
+            Ok(vec![ev("e1", 1000, "Porada")]),
+            Some(Ok(vec![ev("ics:a", 2000, "Call")])),
+            60,
+        );
+        assert_eq!(jobs(&prev).len(), 2);
+        // uživatel odpojí kalendář v appce → scheduler pošle Ok(vec![])
+        // za EventKit, ICS jede beze změny (jako by ekit "vypadl" úspěšně)
+        let q = rebuild_queue(&prev, Ok(vec![]), Some(Ok(vec![ev("ics:a", 2000, "Call")])), 60);
+        let j = jobs(&q);
+        assert_eq!(j.len(), 1, "vypnutý ekit smí nechat jen ICS joby");
+        assert_eq!(j[0].source, Source::Ics, "ICS zůstává funkční nezávisle na odpojení ekitu");
     }
 
     #[test]

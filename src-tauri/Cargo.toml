@@ -1,6 +1,6 @@
 [package]
 name = "ptacek"
-version = "0.1.5"
+version = "0.1.6"
 description = "Transformuj Ptáček — macOS overlay notifikace schůzek"
 authors = ["Transformuj.ai"]
 license = "MIT"

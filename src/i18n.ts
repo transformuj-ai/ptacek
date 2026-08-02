@@ -117,6 +117,12 @@ const STRINGS = {
     calLastSync: (t: string) => `Naposledy synchronizováno ${t}`,
     calSelectionUnavailable: (n: number) =>
       `${n} z vybraných kalendářů teď není vidět, nechávám je ve výběru.`,
+    calDisconnect: "Odpojit kalendář",
+    calReconnect: "Připojit kalendář",
+    calDisconnected:
+      "Kalendář je odpojený. Ptáček z něj nečte, systémové oprávnění zůstává.",
+    calDisconnectHint:
+      "Oprávnění můžeš odebrat i v Nastavení systému.",
     healthTitle: "Kalendář",
     healthOk: (n: number) => `Připojeno, kalendářů: ${n}.`,
     healthSeeSection: "Detail najdeš níž v sekci Kalendáře.",
@@ -288,6 +294,12 @@ const STRINGS = {
     calLastSync: (t: string) => `Last synced ${t}`,
     calSelectionUnavailable: (n: number) =>
       `${n} of your selected calendars can't be seen right now, keeping them selected.`,
+    calDisconnect: "Disconnect calendar",
+    calReconnect: "Connect calendar",
+    calDisconnected:
+      "Calendar is disconnected. Ptáček stops reading it, the system permission stays in place.",
+    calDisconnectHint:
+      "You can also remove the permission in System Settings.",
     healthTitle: "Calendar",
     healthOk: (n: number) => `Connected, ${n} calendars.`,
     healthSeeSection: "See the Calendars section below.",

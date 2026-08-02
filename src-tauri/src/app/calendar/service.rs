@@ -48,6 +48,9 @@ pub struct CalendarHealth {
     pub last_error: Option<String>,
     pub consecutive_failures: u32,
     pub store_generation: u32,
+    /// EventKit zdroj zapnutý v Ptáčkovi (uživatel ho může v Nastavení
+    /// "odpojit" — systémové oprávnění zůstává, appka jen přestane číst)
+    pub enabled: bool,
 }
 
 impl CalendarHealth {
@@ -59,6 +62,7 @@ impl CalendarHealth {
             last_error: None,
             consecutive_failures: 0,
             store_generation: 0,
+            enabled: true,
         }
     }
 }
@@ -361,6 +365,7 @@ impl Worker {
             }
             Request::Health { reply } => {
                 self.health.status = eventkit::authorization_status().to_string();
+                self.health.enabled = crate::app::conf::AppConfig::new().ekit_enabled;
                 let _ = reply.send(self.health.clone());
             }
         }

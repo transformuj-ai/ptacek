@@ -20,6 +20,9 @@ export interface AppSettings {
     firstRunDone: boolean;
     /** co maskot říká: title | fun | hybrid */
     textMode: string;
+    /** EventKit zdroj zapnutý — uživatel může kalendář v appce "odpojit",
+     * systémové oprávnění tím zůstává nedotčené */
+    ekitEnabled: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -34,6 +37,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     language: "cs",
     firstRunDone: false,
     textMode: "hybrid",
+    ekitEnabled: true,
 };
 
 async function getSettingsStorePath(): Promise<string> {
@@ -66,9 +70,10 @@ export async function setSetting<K extends keyof AppSettings>(
     await store.set("app", next);
     await store.save();
     // scheduler přeplánuje hned, ne až za 5 minut — ale jen když se mění
-    // výběr kalendářů, jinak zbytečně bouchá do calendar service při
-    // každé maličkosti (jazyk, zvuk, rychlost přeletu…)
-    if (key === "calendarIds") {
+    // výběr kalendářů nebo zapnutí/vypnutí ekit zdroje, jinak zbytečně
+    // bouchá do calendar service při každé maličkosti (jazyk, zvuk,
+    // rychlost přeletu…)
+    if (key === "calendarIds" || key === "ekitEnabled") {
         invoke("calendars_changed").catch(() => undefined);
     }
 }

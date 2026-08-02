@@ -23,6 +23,9 @@ pub struct AppConfig {
     pub first_run_done: bool,
     /// co maskot říká: "title" | "fun" | "hybrid"
     pub text_mode: String,
+    /// EventKit zdroj zapnutý (uživatel může kalendář v appce "odpojit" —
+    /// systémové oprávnění zůstává, appka jen přestane číst)
+    pub ekit_enabled: bool,
 }
 
 impl Default for AppConfig {
@@ -40,6 +43,7 @@ impl Default for AppConfig {
             first_run_done: false,
             // hybrid: hláška + zkrácený název — bezpečný default při sdílení obrazovky
             text_mode: "hybrid".to_string(),
+            ekit_enabled: true,
         }
     }
 }
@@ -80,12 +84,16 @@ impl AppConfig {
         let raw = std::fs::read_to_string(&setting_path).ok()?;
         let parsed: serde_json::Value = serde_json::from_str(&raw).ok()?;
         let app_value = parsed.get("app").cloned().unwrap_or_else(|| json!({}));
-        // Per-field fallback: jedna špatně typovaná hodnota (ručně
-        // upravený JSON) nesmí zahodit celé nastavení. Co se přečíst
-        // nedá, spadne na default a zaloguje se.
+        Some(Self::from_app_value(&app_value))
+    }
+
+    /// Per-field fallback: jedna špatně typovaná hodnota (ručně upravený
+    /// JSON) nesmí zahodit celé nastavení. Co se přečíst nedá, spadne na
+    /// default. Čistá funkce (bez I/O) ať jde snadno unit testovat.
+    fn from_app_value(app_value: &serde_json::Value) -> AppConfig {
         let d = AppConfig::default();
         let g = |k: &str| app_value.get(k).cloned();
-        let cfg = AppConfig {
+        AppConfig {
             minutes_before: g("minutesBefore")
                 .and_then(|v| v.as_u64())
                 .map(|v| v.min(60) as u32)
@@ -113,8 +121,32 @@ impl AppConfig {
                 .and_then(|v| v.as_str().map(str::to_string))
                 .filter(|v| v == "title" || v == "fun" || v == "hybrid")
                 .unwrap_or(d.text_mode),
-        };
-        Some(cfg)
+            ekit_enabled: g("ekitEnabled").and_then(|v| v.as_bool()).unwrap_or(d.ekit_enabled),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn chybejici_ekit_enabled_v_json_spadne_na_true() {
+        // starší settings.json vytvořené appkou před v0.1.6 klíč nemá
+        let cfg = AppConfig::from_app_value(&json!({}));
+        assert!(cfg.ekit_enabled, "chybějící klíč = zapnuto (default)");
+    }
+
+    #[test]
+    fn ekit_enabled_false_se_precte() {
+        let cfg = AppConfig::from_app_value(&json!({ "ekitEnabled": false }));
+        assert!(!cfg.ekit_enabled);
+    }
+
+    #[test]
+    fn spatny_typ_ekit_enabled_spadne_na_default() {
+        let cfg = AppConfig::from_app_value(&json!({ "ekitEnabled": "nope" }));
+        assert!(cfg.ekit_enabled, "špatný typ v ručně upraveném JSON nesmí appku rozbít");
     }
 }
 

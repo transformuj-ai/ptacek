@@ -36,6 +36,7 @@ interface CalendarHealth {
   lastError: string | null;
   consecutiveFailures: number;
   storeGeneration: number;
+  enabled: boolean;
 }
 
 // Nahrazuje dřívější trojici calStatus+calendars+calMsg — jeden zdroj
@@ -48,7 +49,8 @@ type CalState =
   | { kind: "notDetermined" }
   | { kind: "denied" } // denied i restricted
   | { kind: "writeOnly" }
-  | { kind: "unavailable"; reason: string };
+  | { kind: "unavailable"; reason: string }
+  | { kind: "off" }; // uživatel kalendář v appce odpojil (ekitEnabled=false)
 
 function SettingsApp() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -73,7 +75,6 @@ function SettingsApp() {
   const uninstallConfirmRef = useRef<HTMLButtonElement>(null);
   const [demoMsg, setDemoMsg] = useState("");
   const [autostartMsg, setAutostartMsg] = useState("");
-  const [betaInfoOpen, setBetaInfoOpen] = useState(false);
   // Systémové „Omezit pohyb" — vysvětlíme, proč maskoti nelétají.
   const reducedMotion = useMemo(() => {
     try {
@@ -186,6 +187,39 @@ function SettingsApp() {
     return () => unlisten?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Odpojení/připojení kalendáře je appkový vypínač (ekitEnabled), ne
+  // systémové oprávnění — drží se v CalState jako vlastní stav "off" a
+  // reaguje na změnu nastavení, ať UI odráží aktuální stav i po reloadu.
+  useEffect(() => {
+    if (!loaded) return;
+    if (!settings.ekitEnabled) {
+      setCalState({ kind: "off" });
+    } else if (calState.kind === "off") {
+      loadCalendars();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, settings.ekitEnabled]);
+
+  function disconnectCalendar() {
+    update("ekitEnabled", false);
+  }
+
+  async function reconnectCalendar() {
+    setCalState({ kind: "loading" });
+    await update("ekitEnabled", true);
+    let status = "";
+    try {
+      status = await invoke<string>("calendar_status");
+    } catch {
+      // stav se nepovedlo zjistit — grantCalendar/loadCalendars to doladí
+    }
+    if (status !== "authorized") {
+      await grantCalendar();
+    } else {
+      loadCalendars();
+    }
+  }
 
   async function update<K extends keyof AppSettings>(
     key: K,
@@ -341,15 +375,6 @@ function SettingsApp() {
           <div className="s-head-title-row">
             <h1>Ptáček</h1>
             <span className="beta-chip">{t.betaBadge}</span>
-            <button
-              type="button"
-              className="beta-info-btn"
-              aria-expanded={betaInfoOpen}
-              aria-controls="beta-info-panel"
-              onClick={() => setBetaInfoOpen((v) => !v)}
-            >
-              i<span className="visually-hidden">{t.betaInfoLabel}</span>
-            </button>
           </div>
           <div className="s-sub">{t.tagline}</div>
           <div className="s-perk">{t.perk}</div>
@@ -359,17 +384,15 @@ function SettingsApp() {
         </button>
       </header>
 
-      {betaInfoOpen && (
-        <div id="beta-info-panel" className="beta-info-panel" role="note">
-          <p>{t.betaInfoText}</p>
-          <button
-            className="s-link"
-            onClick={() => invoke("open_github_issues").catch(() => undefined)}
-          >
-            {t.betaReportBug}
-          </button>
-        </div>
-      )}
+      <div className="beta-info-panel" role="note">
+        <p>{t.betaInfoText}</p>
+        <button
+          className="s-link"
+          onClick={() => invoke("open_github_issues").catch(() => undefined)}
+        >
+          {t.betaReportBug}
+        </button>
+      </div>
 
       <div aria-live="polite">
         {demoMsg && <div className="s-info">{demoMsg}</div>}
@@ -513,7 +536,9 @@ function SettingsApp() {
         <div className="health-row">
           <span
             className={
-              calState.kind === "ready" || calState.kind === "empty"
+              calState.kind === "off"
+                ? "health-dot health-dot-gray"
+                : calState.kind === "ready" || calState.kind === "empty"
                 ? "health-dot health-dot-green"
                 : calState.kind === "denied"
                 ? "health-dot health-dot-red"
@@ -522,6 +547,14 @@ function SettingsApp() {
             aria-hidden="true"
           />
           <div className="health-text" aria-live="polite">
+            {calState.kind === "off" && (
+              <>
+                <div>{t.calDisconnected}</div>
+                <button className="s-link" onClick={reconnectCalendar} disabled={calBusy}>
+                  {calBusy ? t.calAsking : t.calReconnect}
+                </button>
+              </>
+            )}
             {calState.kind === "ready" && (
               <>
                 <div>{t.healthOk(calState.cals.length)}</div>
@@ -538,6 +571,11 @@ function SettingsApp() {
               </>
             )}
             {calState.kind === "empty" && <div>{t.calEmpty}</div>}
+            {(calState.kind === "ready" || calState.kind === "empty") && (
+              <button className="s-link" onClick={disconnectCalendar}>
+                {t.calDisconnect}
+              </button>
+            )}
             {calState.kind === "loading" && <div>{t.calLoading}</div>}
             {calState.kind === "unavailable" && (
               <>
@@ -603,6 +641,25 @@ function SettingsApp() {
       <section>
         <div className="s-label">{t.secCalendars}</div>
         {calState.kind === "loading" && <div className="cal-hint">{t.calLoading}</div>}
+        {calState.kind === "off" && (
+          <div className="s-info">
+            <div style={{ marginBottom: 10 }}>{t.calDisconnected}</div>
+            <div className="cal-hint">
+              {t.calDisconnectHint}{" "}
+              <button
+                className="s-link s-link-inline"
+                onClick={() =>
+                  invoke("open_calendar_privacy_settings").catch(() => undefined)
+                }
+              >
+                {t.calOpenSystemSettings}
+              </button>
+            </div>
+            <button className="s-demo" onClick={reconnectCalendar} disabled={calBusy}>
+              {calBusy ? t.calAsking : t.calReconnect}
+            </button>
+          </div>
+        )}
         {calState.kind === "ready" && (
           <>
             <div className="cal-hint">{t.calHint}</div>
@@ -625,9 +682,19 @@ function SettingsApp() {
                 </label>
               ))}
             </div>
+            <button className="s-link" onClick={disconnectCalendar}>
+              {t.calDisconnect}
+            </button>
           </>
         )}
-        {calState.kind === "empty" && <div className="s-info">{t.calEmpty}</div>}
+        {calState.kind === "empty" && (
+          <div className="s-info">
+            <div style={{ marginBottom: 10 }}>{t.calEmpty}</div>
+            <button className="s-link" onClick={disconnectCalendar}>
+              {t.calDisconnect}
+            </button>
+          </div>
+        )}
         {calState.kind === "unavailable" && (
           <div className="s-info">
             <div style={{ marginBottom: 10 }}>{t.calUnavailable}</div>
