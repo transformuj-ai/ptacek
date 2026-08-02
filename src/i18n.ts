@@ -43,6 +43,13 @@ const STRINGS = {
       "Systém má zapnuté „Omezit pohyb“ (Nastavení systému → Zpřístupnění → Zobrazení). Ptáček to respektuje: místo přeletu ukáže v rohu tichou kartu se stejnými tlačítky. Vypnutím té volby se maskoti vrátí.",
     tabSettings: "Nastavení",
     tabGuide: "Návod",
+    tabReport: "Ze zákulisí ↗",
+    tabReportTitle:
+      "Průběžně aktualizovaný report z vývoje Ptáčka. Co se rozbilo, jak jsme to našli a co jsme opravili.",
+    reportRowTitle: "Ze zákulisí vývoje",
+    reportRowDesc:
+      "Otevřený report z vývoje appky: co se rozbilo, jak jsme to našli, co je opravené. Lidská i technická verze. Průběžně ho aktualizujeme.",
+    reportRowOpen: "Otevřít report ↗",
     guideIntro:
       "Ptáček sedí v horní liště a pár minut před schůzkou pustí přes obrazovku maskota. Nejde přehlédnout, za pár vteřin sám zmizí a nic nikam neposílá.",
     guideStartTitle: "Než začneš",
@@ -227,6 +234,13 @@ const STRINGS = {
       "Your Mac has “Reduce motion” turned on (System Settings → Accessibility → Display). Ptáček respects it: instead of a flyby you get a quiet card in the corner with the same buttons. Turn that option off and the mascots come back.",
     tabSettings: "Settings",
     tabGuide: "Guide",
+    tabReport: "Behind the scenes ↗",
+    tabReportTitle:
+      "A continuously updated report from Ptáček development. What broke, how we found it and what we fixed.",
+    reportRowTitle: "Behind the scenes",
+    reportRowDesc:
+      "An open report from building the app: what broke, how we found it, what is fixed. Human and technical version. We keep it updated.",
+    reportRowOpen: "Open the report ↗",
     guideIntro:
       "Ptáček lives in your menu bar and sends a mascot across the screen a few minutes before a meeting. Impossible to miss, gone in seconds, and nothing ever leaves your Mac.",
     guideStartTitle: "Before you start",

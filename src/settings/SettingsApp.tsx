@@ -420,6 +420,15 @@ function SettingsApp() {
         >
           {t.tabGuide}
         </button>
+        <button
+          type="button"
+          role="button"
+          className="s-tab s-tab-external"
+          title={t.tabReportTitle}
+          onClick={() => invoke("open_weekend_report").catch(() => undefined)}
+        >
+          {t.tabReport}
+        </button>
       </nav>
 
       {tab === "guide" ? (
@@ -818,6 +827,15 @@ function SettingsApp() {
       <section>
         <div className="s-label">{t.secAbout}</div>
         <div className="s-about s-centered">
+          <p>
+            <b>{t.reportRowTitle}</b> {t.reportRowDesc}
+          </p>
+          <button
+            className="s-link s-link-primary"
+            onClick={() => invoke("open_weekend_report").catch(() => undefined)}
+          >
+            {t.reportRowOpen}
+          </button>
           <div className="brand-row">
             <div className="avatar-wrap">
               <button

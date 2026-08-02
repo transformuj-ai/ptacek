@@ -215,6 +215,7 @@ fn build_app() {
             cmd::trigger_demo,
             cmd::set_launch_at_login,
             cmd::open_transformuj,
+            cmd::open_weekend_report,
             cmd::open_linkedin,
             cmd::open_calendar_privacy_settings,
             cmd::open_github_issues,

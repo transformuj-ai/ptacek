@@ -196,6 +196,12 @@ pub fn open_transformuj() {
     open_fixed("https://transformuj.ai");
 }
 
+/// Otevře víkendový report — pevná URL.
+#[tauri::command]
+pub fn open_weekend_report() {
+    open_fixed("https://ze-zakulisi-vyvoje-aplikace.netlify.app/");
+}
+
 /// Otevře v Nastavení systému rovnou panel Soukromí a zabezpečení →
 /// Kalendáře. Pevný deep-link, žádný vstup z frontendu — stejný vzor
 /// jako ostatní pevné otevírání URL v tomhle souboru. Používá se, když
