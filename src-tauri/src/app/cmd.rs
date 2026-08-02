@@ -11,6 +11,19 @@ pub fn overlay_done(app: tauri::AppHandle) {
     window::close_overlay(&app);
 }
 
+/// Konec „vsáknutí" welcome karty (CSS transitionend/fallback na
+/// frontendu): zavři welcome okno a pusť uvítací demo přelet, stejně
+/// jako dřív dělal first-run blok v main.rs.
+#[tauri::command]
+pub fn welcome_done(app: tauri::AppHandle) {
+    window::close_welcome(&app);
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        window::open_overlay(&handle, "mode=demo&mascot=bird");
+    });
+}
+
 /// Hover nad maskotem: true = okno přijímá kliky (detail karta),
 /// false = zpět na click-through.
 #[tauri::command]

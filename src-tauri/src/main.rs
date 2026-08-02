@@ -114,18 +114,15 @@ fn build_app() {
                 });
             }
 
-            // První spuštění: otevřít Nastavení (jinak uživatel neví, že
-            // appka vůbec běží — sedí jen v liště) a po chvíli pustit
-            // uvítací přelet ptáčka. Flag se zapíše hned, ať se onboarding
-            // neopakuje.
+            // První spuštění: místo Nastavení otevřít malé uvítací okno
+            // (jinak uživatel neví, že appka vůbec běží — sedí jen v liště).
+            // Uvítací přelet ptáčka pustí až command welcome_done, když
+            // uživatel klikne na „Rozumím". Flag se zapíše hned, ať se
+            // onboarding neopakuje.
             if !app::conf::AppConfig::new().first_run_done {
                 let handle = app.handle();
                 app::conf::set_app_value(&handle, "firstRunDone", serde_json::json!(true));
-                app::utils::open_setting_window(handle.clone());
-                tauri::async_runtime::spawn(async move {
-                    tokio::time::sleep(std::time::Duration::from_millis(2500)).await;
-                    app::window::open_overlay(&handle, "mode=demo&mascot=bird");
-                });
+                app::window::open_welcome_window(&handle);
             }
 
             // Testovací hák: PTACEK_DEMO=1 spustí demo přelet 2 s po startu.
@@ -213,6 +210,7 @@ fn build_app() {
             conf::combine_config_path,
             cmd::get_mouse_position,
             cmd::overlay_done,
+            cmd::welcome_done,
             cmd::set_overlay_interactive,
             cmd::trigger_demo,
             cmd::set_launch_at_login,

@@ -174,6 +174,13 @@ const STRINGS = {
     photoCaption: "Jakub Liška · Co-founder Transformuj.ai",
     linkWeb: "transformuj.ai →",
     linkLi: "LinkedIn: Jakub Liška →",
+    welcomeTitle: "Ptáček je nainstalovaný 🎉",
+    welcomeThanks: "Díky, že jsi Ptáčka pustil/a do svého Macu.",
+    welcomeBeta:
+      "Ptáček je veřejná betaverze — bez telemetrie a bez serverů. Všechna data zůstávají jen v tvém počítači.",
+    welcomeWhere: "Ptáček žije nahoře v liště vedle hodin.",
+    welcomeWhereHint: "Klikni na ikonku, kdykoli něco potřebuješ.",
+    welcomeOk: "Rozumím",
     secUninstall: "Odinstalace",
     uninstallText:
       "Přetažení do koše samo o sobě nechá na disku nastavení, spouštění po přihlášení a adresu kalendáře v Klíčence. Tímhle tlačítkem po sobě Ptáček všechno uklidí a otevře ti složku Aplikace, kde ho pak stačí hodit do koše. Tvůj kalendář ani nic jiného se nedotkne.",
@@ -351,6 +358,13 @@ const STRINGS = {
     photoCaption: "Jakub Liška · Co-founder, Transformuj.ai",
     linkWeb: "transformuj.ai →",
     linkLi: "LinkedIn: Jakub Liška →",
+    welcomeTitle: "Ptáček is installed 🎉",
+    welcomeThanks: "Thanks for letting Ptáček onto your Mac.",
+    welcomeBeta:
+      "Ptáček is a public beta — no telemetry, no servers. All data stays on your computer.",
+    welcomeWhere: "Ptáček lives in the menu bar, next to the clock.",
+    welcomeWhereHint: "Click the icon whenever you need it.",
+    welcomeOk: "Got it",
     secUninstall: "Uninstall",
     uninstallText:
       "Dragging the app to the Trash on its own leaves behind your settings, the launch-at-login entry, and the calendar address in the Keychain. This button cleans all of that up and opens your Applications folder, where you just drop Ptáček in the Trash. Your calendar and everything else stays untouched.",

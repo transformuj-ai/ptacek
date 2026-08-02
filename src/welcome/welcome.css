@@ -1,0 +1,174 @@
+/* Welcome — první okno po instalaci. Brand: tmavá, jedna oranžová,
+   hairlines (stejné DNA jako settings.css). Okno je transparentní a
+   frameless, kartu vykresluje frontend. */
+
+.welcome-root {
+  width: 100vw;
+  height: 100vh;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+}
+
+.welcome-card {
+  width: 100%;
+  max-width: 480px;
+  background: #0b0b0d;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  padding: 26px 24px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  color: #e4e4e7;
+
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+/* Animace „vsáknutí" po kliknutí na Rozumím — karta letí do pravého
+   horního rohu obrazovky k liště, čistě CSS transform/opacity, žádný JS
+   animační loop. Rust okno zavře command welcome_done po transitionend
+   (fallback timeout je v JS). */
+.welcome-card.vanish {
+  transition: transform 700ms cubic-bezier(0.5, 0, 1, 0.5), opacity 700ms
+    cubic-bezier(0.5, 0, 1, 0.5);
+  transform: translate(calc(50vw - 90px), calc(-50vh + 40px)) scale(0.04);
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-card.vanish {
+    transition: none;
+  }
+}
+
+.welcome-logo {
+  width: 140px;
+  margin-bottom: 4px;
+}
+
+.welcome-title {
+  font-size: 19px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+}
+
+.welcome-thanks {
+  font-size: 12.5px;
+  color: #a1a1aa;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.welcome-beta {
+  font-size: 11.5px;
+  color: #a1a1aa;
+  line-height: 1.55;
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  background: rgba(249, 115, 22, 0.05);
+  border: 1px solid rgba(249, 115, 22, 0.18);
+  border-radius: 8px;
+}
+
+.welcome-where {
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Mini mockup menu baru — dost abstraktní na to, aby fungoval na
+   jakémkoli monitoru, ale jasně ukazoval "tady" na oranžovou ikonku. */
+.menubar-mock {
+  width: 100%;
+  max-width: 260px;
+  height: 34px;
+  background: #17171a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0 12px;
+}
+
+.menubar-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.menubar-icon-bird {
+  width: 18px;
+  height: 18px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  border-radius: 50%;
+  animation: menubar-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes menubar-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 8px 4px rgba(249, 115, 22, 0.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menubar-icon-bird {
+    animation: none;
+    box-shadow: 0 0 6px 3px rgba(249, 115, 22, 0.45);
+  }
+}
+
+.welcome-where-text {
+  font-size: 12.5px;
+  color: #e4e4e7;
+  margin: 0;
+}
+
+.welcome-where-hint {
+  font-size: 11px;
+  color: #a1a1aa;
+  margin: 0;
+}
+
+.welcome-ok {
+  margin-top: auto;
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  background: #f97316;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.welcome-ok:hover {
+  background: #fb8a3c;
+}

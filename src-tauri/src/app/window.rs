@@ -8,6 +8,7 @@ use mouse_position::mouse_position::Mouse;
 use tauri::{AppHandle, Manager, WindowBuilder, WindowUrl};
 
 pub const OVERLAY_LABEL: &str = "overlay";
+pub const WELCOME_LABEL: &str = "welcome";
 
 /// Poslední keep-alive z hoveru — failsafe podle něj pozná, že
 /// uživatel s oknem pracuje (a nezavře mu ho pod rukama).
@@ -312,6 +313,62 @@ pub fn close_overlay(app: &AppHandle) {
             error!("Zavření overlay okna selhalo: {err}");
         } else {
             info!("Overlay okno zavřeno");
+        }
+    }
+}
+
+/// First-run uvítací okno: karta uprostřed obrazovky, okno samotné ale
+/// zabírá celý primární monitor (transparent, stejný vzor jako overlay
+/// výše), aby karta mohla animovaně „odletět" k liště v pravém horním
+/// rohu. Zavírá se sama commandem `welcome_done` po CSS animaci na
+/// frontendu. Zůstává fokusovatelné (žádný click-through) — je to
+/// interaktivní first-run dialog, ne pasivní přelet.
+pub fn open_welcome_window(app: &AppHandle) {
+    if app.get_window(WELCOME_LABEL).is_some() {
+        info!("Welcome okno už existuje, nevytvářím druhé");
+        return;
+    }
+
+    let window = match WindowBuilder::new(app, WELCOME_LABEL, WindowUrl::App("/welcome".into()))
+        .transparent(true)
+        .decorations(false)
+        .resizable(false)
+        .skip_taskbar(true)
+        .always_on_top(true)
+        .visible(false)
+        .build()
+    {
+        Ok(w) => w,
+        Err(err) => {
+            error!("Nepodařilo se vytvořit welcome okno: {err}");
+            return;
+        }
+    };
+
+    // Roztáhnout přes celý primární monitor — stejné pořadí jako
+    // u open_overlay: nejdřív size, pak position (viz komentář tam,
+    // AppKit jinak odsune horní okraj nad obrazovku).
+    match window.primary_monitor() {
+        Ok(Some(monitor)) => {
+            if let Err(err) = window.set_size(*monitor.size()) {
+                error!("Welcome set_size selhalo: {err}");
+            }
+            if let Err(err) = window.set_position(*monitor.position()) {
+                error!("Welcome set_position selhalo: {err}");
+            }
+        }
+        _ => error!("Primární monitor nenalezen, welcome okno zůstává na výchozí velikosti"),
+    }
+
+    info!("Welcome okno vytvořeno");
+}
+
+pub fn close_welcome(app: &AppHandle) {
+    if let Some(window) = app.get_window(WELCOME_LABEL) {
+        if let Err(err) = window.close() {
+            error!("Zavření welcome okna selhalo: {err}");
+        } else {
+            info!("Welcome okno zavřeno");
         }
     }
 }
